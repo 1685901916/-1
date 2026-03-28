@@ -1,0 +1,85 @@
+0 verbose cli D:\nodejs\node.exe D:\nodejs\node_modules\npm\bin\npm-cli.js
+1 info using npm@10.9.3
+2 info using node@v22.20.0
+3 silly config load:file:D:\nodejs\node_modules\npm\npmrc
+4 silly config load:file:F:\cursor\project12  漫画画质提升\.npmrc
+5 silly config load:file:C:\Users\Arthur\.npmrc
+6 silly config load:file:F:\OpenClaw\npm-global\etc\npmrc
+7 verbose title npm exec node -
+8 verbose argv "exec" "--yes" "--package" "playwright" "--" "node" "-"
+9 verbose logfile logs-max:10 dir:F:\cursor\project12  漫画画质提升\.npm-cache\_logs\2026-03-27T12_05_37_681Z-
+10 verbose logfile F:\cursor\project12  漫画画质提升\.npm-cache\_logs\2026-03-27T12_05_37_681Z-debug-0.log
+11 silly logfile start cleaning logs, removing 1 files
+12 silly packumentCache heap:4345298944 maxSize:1086324736 maxEntrySize:543162368
+13 silly logfile done cleaning log files
+14 http fetch GET 200 https://registry.npmmirror.com/playwright 925ms (cache miss)
+15 silly packumentCache heap:4345298944 maxSize:1086324736 maxEntrySize:543162368
+16 silly idealTree buildDeps
+17 silly fetch manifest playwright@1.58.2
+18 silly packumentCache full:https://registry.npmmirror.com/playwright cache-miss
+19 http fetch GET 200 https://registry.npmmirror.com/playwright 121ms (cache revalidated)
+20 silly packumentCache full:https://registry.npmmirror.com/playwright set size:12988678 disposed:false
+21 silly placeDep ROOT playwright@1.58.2 OK for:  want: 1.58.2
+22 silly fetch manifest playwright-core@1.58.2
+23 silly packumentCache full:https://registry.npmmirror.com/playwright-core cache-miss
+24 silly fetch manifest fsevents@2.3.2
+25 silly packumentCache full:https://registry.npmmirror.com/fsevents cache-miss
+26 http fetch GET 200 https://registry.npmmirror.com/fsevents 58ms (cache revalidated)
+27 silly packumentCache full:https://registry.npmmirror.com/fsevents set size:122258 disposed:false
+28 http fetch GET 200 https://registry.npmmirror.com/playwright-core 268ms (cache revalidated)
+29 silly packumentCache full:https://registry.npmmirror.com/playwright-core set size:15032828 disposed:false
+30 silly placeDep ROOT fsevents@2.3.2 OK for: playwright@1.58.2 want: 2.3.2
+31 silly placeDep ROOT playwright-core@1.58.2 OK for: playwright@1.58.2 want: 1.58.2
+32 silly reify moves {}
+33 silly audit bulk request {
+33 silly audit   playwright: [ '1.58.2' ],
+33 silly audit   fsevents: [ '2.3.2' ],
+33 silly audit   'playwright-core': [ '1.58.2' ]
+33 silly audit }
+34 verbose reify failed optional dependency F:\cursor\project12  漫画画质提升\.npm-cache\_npx\e41f203b7505f1fb\node_modules\fsevents
+35 silly reify mark deleted [
+35 silly reify   'F:\\cursor\\project12  漫画画质提升\\.npm-cache\\_npx\\e41f203b7505f1fb\\node_modules\\fsevents'
+35 silly reify ]
+36 http cache playwright-core@https://registry.npmmirror.com/playwright-core/-/playwright-core-1.58.2.tgz 0ms (cache hit)
+37 http cache playwright@https://registry.npmmirror.com/playwright/-/playwright-1.58.2.tgz 0ms (cache hit)
+38 silly tarball no local data for playwright-core@https://registry.npmmirror.com/playwright-core/-/playwright-core-1.58.2.tgz. Extracting by manifest.
+39 silly tarball no local data for playwright@https://registry.npmmirror.com/playwright/-/playwright-1.58.2.tgz. Extracting by manifest.
+40 http fetch POST 404 https://registry.npmmirror.com/-/npm/v1/security/advisories/bulk 39ms
+41 silly audit bulk request failed [object Object]
+42 http fetch POST 404 https://registry.npmmirror.com/-/npm/v1/security/audits/quick 39ms
+43 verbose audit error HttpErrorGeneral: 404 Not Found - POST https://registry.npmmirror.com/-/npm/v1/security/audits/quick - [NOT_IMPLEMENTED] /-/npm/v1/security/* not implemented yet
+43 verbose audit error     at D:\nodejs\node_modules\npm\node_modules\npm-registry-fetch\lib\check-response.js:103:15
+43 verbose audit error     at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+43 verbose audit error     at async [getReport] (D:\nodejs\node_modules\npm\node_modules\@npmcli\arborist\lib\audit-report.js:336:21)
+43 verbose audit error     at async AuditReport.run (D:\nodejs\node_modules\npm\node_modules\@npmcli\arborist\lib\audit-report.js:106:19) {
+43 verbose audit error   headers: [Object: null prototype] {
+43 verbose audit error     server: [ 'Tengine' ],
+43 verbose audit error     date: [ 'Fri, 27 Mar 2026 12:05:40 GMT' ],
+43 verbose audit error     'content-type': [ 'application/json' ],
+43 verbose audit error     'transfer-encoding': [ 'chunked' ],
+43 verbose audit error     connection: [ 'keep-alive' ],
+43 verbose audit error     'strict-transport-security': [ 'max-age=5184000' ],
+43 verbose audit error     via: [ 'kunlun4.cn8360[,404666]' ],
+43 verbose audit error     'timing-allow-origin': [ '*' ],
+43 verbose audit error     eagleid: [ 'ab2ba99817746131405804987e' ],
+43 verbose audit error     'x-fetch-attempts': [ '1' ]
+43 verbose audit error   },
+43 verbose audit error   statusCode: 404,
+43 verbose audit error   code: 'E404',
+43 verbose audit error   method: 'POST',
+43 verbose audit error   uri: 'https://registry.npmmirror.com/-/npm/v1/security/audits/quick',
+43 verbose audit error   body: {
+43 verbose audit error     error: '[NOT_IMPLEMENTED] /-/npm/v1/security/* not implemented yet'
+43 verbose audit error   },
+43 verbose audit error   pkgid: undefined
+43 verbose audit error }
+44 silly audit error [object Object]
+45 silly audit report null
+46 http fetch GET 200 https://cdn.npmmirror.com/packages/playwright/1.58.2/playwright-1.58.2.tgz 895ms (cache miss)
+47 http fetch GET 200 https://cdn.npmmirror.com/packages/playwright-core/1.58.2/playwright-core-1.58.2.tgz 1530ms (cache miss)
+48 verbose cwd F:\cursor\project12  漫画画质提升
+49 verbose os Windows_NT 10.0.22631
+50 verbose node v22.20.0
+51 verbose npm  v10.9.3
+52 verbose exit 1
+53 verbose code 1

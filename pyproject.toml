@@ -1,0 +1,31 @@
+[project]
+name = "mobi-manga-enhancer"
+version = "0.1.0"
+description = "Local MOBI manga inspection, enhancement, and repack preparation pipeline."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+  "Pillow>=10.0.0",
+  "opencv-python>=4.10.0",
+  "PyMuPDF>=1.24.0",
+]
+
+[project.optional-dependencies]
+launcher = [
+  "PySide6>=6.8,<6.9",
+]
+
+[project.scripts]
+mobi-manga = "mobi_manga_app.cli:main"
+mobi-manga-api = "mobi_manga_app.api:main"
+manga-launcher = "mobi_manga_app.launcher:main"
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]

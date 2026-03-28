@@ -1,0 +1,75 @@
+- generic [ref=e3]:
+  - complementary [ref=e4]:
+    - generic [ref=e5]:
+      - generic [ref=e6]: 漫
+      - generic [ref=e7]:
+        - strong [ref=e8]: 漫画画质提升
+        - generic [ref=e9]: 本地工作台
+    - button "导入素材 导入文件与目录，自动识别到素材池" [ref=e10] [cursor=pointer]:
+      - strong [ref=e11]: 导入素材
+      - generic [ref=e12]: 导入文件与目录，自动识别到素材池
+    - generic [ref=e13]:
+      - generic [ref=e14]:
+        - paragraph [ref=e15]: 功能模块
+        - button "切换折叠" [ref=e16] [cursor=pointer]:
+          - img [ref=e17]
+      - generic [ref=e19]:
+        - generic [ref=e20]: 收起子页面
+        - button "拆图模块 漫画文件解包" [ref=e21] [cursor=pointer]:
+          - strong [ref=e22]: 拆图模块
+          - generic [ref=e23]: 漫画文件解包
+        - button "画质提升 AI 超分辨率增强" [ref=e24] [cursor=pointer]:
+          - strong [ref=e25]: 画质提升
+          - generic [ref=e26]: AI 超分辨率增强
+        - button "导出模块 多格式转换与导出" [ref=e27] [cursor=pointer]:
+          - strong [ref=e28]: 导出模块
+          - generic [ref=e29]: 多格式转换与导出
+    - button "执行设置 保留图片、导出格式与默认策略" [ref=e30] [cursor=pointer]:
+      - strong [ref=e31]: 执行设置
+      - generic [ref=e32]: 保留图片、导出格式与默认策略
+    - generic [ref=e33]:
+      - paragraph [ref=e34]: 任务结果
+      - paragraph [ref=e35]: 查看进度条、日志、错误与输出
+      - generic [ref=e36]: 暂无任务
+    - generic [ref=e37]:
+      - paragraph [ref=e38]: 当前选择
+      - generic [ref=e39]: 尚未选择素材
+  - main [ref=e40]:
+    - generic [ref=e41]:
+      - generic [ref=e42]:
+        - paragraph [ref=e43]: 漫画画质提升
+        - heading "导入" [level=1] [ref=e44]
+        - paragraph [ref=e45]: 本地漫画增强与多格式导出工作台
+      - generic [ref=e46]:
+        - button "刷新数据" [ref=e47] [cursor=pointer]:
+          - img [ref=e48]
+          - text: 刷新数据
+        - button "一键全部完成" [ref=e50] [cursor=pointer]
+    - generic [ref=e51]:
+      - generic [ref=e52]:
+        - generic [ref=e53]:
+          - generic [ref=e54]:
+            - paragraph [ref=e55]: 拖拽导入
+            - heading "把漫画拖到这里" [level=2] [ref=e56]
+          - generic [ref=e57]: 不改动原文件
+        - button "支持 MOBI / PDF / CBZ / 图片文件夹 先加入批处理列表，再到上面的导出页设置目录和格式。" [ref=e58] [cursor=pointer]:
+          - img [ref=e60]
+          - strong [ref=e62]: 支持 MOBI / PDF / CBZ / 图片文件夹
+          - paragraph [ref=e63]: 先加入批处理列表，再到上面的导出页设置目录和格式。
+        - generic [ref=e64]:
+          - button "导入文件" [ref=e65] [cursor=pointer]
+          - button "导入目录" [ref=e66] [cursor=pointer]
+          - button "切换素材目录" [ref=e67] [cursor=pointer]
+      - generic [ref=e68]:
+        - generic [ref=e69]:
+          - generic [ref=e70]:
+            - paragraph [ref=e71]: 素材池
+            - heading "当前素材池" [level=2] [ref=e72]
+          - generic [ref=e73]: 0 项
+        - generic [ref=e74]:
+          - button "切换素材目录" [ref=e75] [cursor=pointer]
+          - button "导入目录" [ref=e76] [cursor=pointer]
+          - button "全选当前目录" [ref=e77] [cursor=pointer]
+          - button "清空选择" [ref=e78] [cursor=pointer]
+          - button "打开素材池" [ref=e79] [cursor=pointer]
+        - generic [ref=e81]: 当前没有素材，先导入文件或目录。

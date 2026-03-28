@@ -1,0 +1,22 @@
+0 verbose cli D:\nodejs\node.exe D:\nodejs\node_modules\npm\bin\npm-cli.js
+1 info using npm@10.9.3
+2 info using node@v22.20.0
+3 silly config load:file:D:\nodejs\node_modules\npm\npmrc
+4 silly config load:file:F:\cursor\project12  漫画画质提升\.npmrc
+5 silly config load:file:C:\Users\Arthur\.npmrc
+6 silly config load:file:F:\OpenClaw\npm-global\etc\npmrc
+7 verbose title npm exec playwright-cli list
+8 verbose argv "exec" "--yes" "--package" "@playwright/cli" "--" "playwright-cli" "list"
+9 verbose logfile logs-max:10 dir:F:\cursor\project12  漫画画质提升\.npm-cache\_logs\2026-03-27T12_04_07_516Z-
+10 verbose logfile F:\cursor\project12  漫画画质提升\.npm-cache\_logs\2026-03-27T12_04_07_516Z-debug-0.log
+11 silly logfile start cleaning logs, removing 2 files
+12 silly packumentCache heap:4345298944 maxSize:1086324736 maxEntrySize:543162368
+13 silly logfile done cleaning log files
+14 http fetch GET 200 https://registry.npmmirror.com/@playwright%2fcli 246ms (cache revalidated)
+15 silly packumentCache heap:4345298944 maxSize:1086324736 maxEntrySize:543162368
+16 verbose cwd F:\cursor\project12  漫画画质提升
+17 verbose os Windows_NT 10.0.22631
+18 verbose node v22.20.0
+19 verbose npm  v10.9.3
+20 verbose exit 0
+21 info ok

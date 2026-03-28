@@ -1,0 +1,93 @@
+- generic [ref=e3]:
+  - complementary [ref=e4]:
+    - generic [ref=e5]:
+      - generic [ref=e6]: 漫
+      - generic [ref=e7]:
+        - strong [ref=e8]: 漫画画质提升
+        - generic [ref=e9]: 本地工作台
+    - button "导入素材 导入文件与目录，自动识别到素材池" [ref=e10] [cursor=pointer]:
+      - strong [ref=e11]: 导入素材
+      - generic [ref=e12]: 导入文件与目录，自动识别到素材池
+    - generic [ref=e13]:
+      - generic [ref=e14]:
+        - paragraph [ref=e15]: 功能模块
+        - button "切换折叠" [ref=e16] [cursor=pointer]:
+          - img [ref=e17]
+      - generic [ref=e19]:
+        - generic [ref=e20]: 收起子页面
+        - button "拆图模块 漫画文件解包" [ref=e21] [cursor=pointer]:
+          - strong [ref=e22]: 拆图模块
+          - generic [ref=e23]: 漫画文件解包
+        - button "画质提升 AI 超分辨率增强" [ref=e24] [cursor=pointer]:
+          - strong [ref=e25]: 画质提升
+          - generic [ref=e26]: AI 超分辨率增强
+        - button "导出模块 多格式转换与导出" [ref=e27] [cursor=pointer]:
+          - strong [ref=e28]: 导出模块
+          - generic [ref=e29]: 多格式转换与导出
+    - generic [ref=e30]:
+      - paragraph [ref=e31]: 执行设置
+      - paragraph [ref=e32]: 保留图片、导出格式与默认策略
+      - generic [ref=e33]:
+        - generic [ref=e34]:
+          - checkbox "保留原图 pages" [checked] [ref=e35]
+          - generic [ref=e36]: 保留原图 pages
+        - generic [ref=e37]:
+          - checkbox "保留增强图 pages_ai" [checked] [ref=e38]
+          - generic [ref=e39]: 保留增强图 pages_ai
+        - generic [ref=e40]:
+          - strong [ref=e41]: 输出格式
+          - generic [ref=e42]:
+            - button "CBZ" [ref=e43] [cursor=pointer]
+            - button "ZIP" [ref=e44] [cursor=pointer]
+            - button "EPUB" [ref=e45] [cursor=pointer]
+            - button "MOBI" [ref=e46] [cursor=pointer]
+            - button "PDF" [ref=e47] [cursor=pointer]
+        - generic [ref=e48]:
+          - strong [ref=e49]: 增强倍率
+          - generic [ref=e50]: 1.5x
+          - slider [ref=e51]: "1.5"
+        - generic [ref=e52]: 默认输出：outputs
+        - generic [ref=e53]: 当前策略：导入文件与目录，自动归档到素材池。
+    - generic [ref=e54]:
+      - paragraph [ref=e55]: 任务结果
+      - paragraph [ref=e56]: 查看进度、日志、错误与输出
+      - generic [ref=e57]: 暂无任务
+    - generic [ref=e58]:
+      - paragraph [ref=e59]: 当前选择
+      - generic [ref=e60]: 尚未选择素材
+  - main [ref=e61]:
+    - generic [ref=e62]:
+      - generic [ref=e63]:
+        - paragraph [ref=e64]: 漫画画质提升
+        - heading "导入" [level=1] [ref=e65]
+        - paragraph [ref=e66]: 本地漫画拆图、图片增强与多格式导出工作台
+      - button "刷新数据" [ref=e67] [cursor=pointer]:
+        - img [ref=e68]
+        - text: 刷新数据
+    - generic [ref=e70]:
+      - generic [ref=e71]:
+        - generic [ref=e72]:
+          - generic [ref=e73]:
+            - paragraph [ref=e74]: 拖拽导入
+            - heading "把漫画或目录加入素材池" [level=2] [ref=e75]
+          - generic [ref=e76]: 支持文件与目录
+        - generic [ref=e77]:
+          - img [ref=e79]
+          - strong [ref=e81]: 支持导入漫画文件，也支持导入整个目录
+          - paragraph [ref=e82]: 支持导入漫画文件，也支持导入整个目录。导入后会复制到素材池，并自动识别目录里的各类漫画格式与图片文件夹。
+          - generic [ref=e83]:
+            - button "导入文件" [ref=e84] [cursor=pointer]
+            - button "导入目录" [ref=e85] [cursor=pointer]
+            - button "切换素材目录" [ref=e86] [cursor=pointer]
+      - generic [ref=e87]:
+        - generic [ref=e88]:
+          - generic [ref=e89]:
+            - paragraph [ref=e90]: 素材池
+            - heading "当前素材池" [level=2] [ref=e91]
+          - generic [ref=e92]: 0 项
+        - generic [ref=e93]:
+          - button "切换素材目录" [ref=e94] [cursor=pointer]
+          - button "导入目录" [ref=e95] [cursor=pointer]
+          - button "清空选择" [ref=e96] [cursor=pointer]
+          - button "打开素材池" [ref=e97] [cursor=pointer]
+        - generic [ref=e99]: 当前没有素材，先导入文件或目录。

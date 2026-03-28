@@ -1,0 +1,9 @@
+[2026-03-23 13:17:39] 启动器已加载，等待启动服务。
+[2026-03-23 13:17:39] 开始启动服务
+    runtime_dir=D:\cursor\project12  漫画画质提升
+    static_dir=D:\cursor\project12  漫画画质提升\frontend\dist
+    source_dir=D:\cursor\project12  漫画画质提升\sources
+    output_dir=D:\cursor\project12  漫画画质提升\outputs
+    auto_start_service=False
+[2026-03-23 13:17:40] 服务已启动: http://127.0.0.1:47464/
+[2026-03-23 13:17:40] 服务已停止。

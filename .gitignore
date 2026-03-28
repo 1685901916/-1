@@ -1,0 +1,17 @@
+__pycache__/
+*.pyc
+.venv/
+build/
+dist/
+*.egg-info/
+.work/
+frontend/node_modules/
+frontend/.npm-cache/
+frontend/dist/
+frontend/.playwright-cli/
+output/
+outputs/
+dist_web/
+dist_fresh/
+build_web/
+build_fresh/

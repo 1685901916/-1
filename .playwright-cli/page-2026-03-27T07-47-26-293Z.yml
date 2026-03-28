@@ -1,0 +1,234 @@
+- generic [ref=e3]:
+  - complementary [ref=e4]:
+    - generic [ref=e5]:
+      - generic [ref=e6]: 漫
+      - generic [ref=e7]:
+        - strong [ref=e8]: 漫画画质提升
+        - text: 本地工作台
+    - button "导入素材 导入文件与目录，自动识别到素材池" [ref=e9] [cursor=pointer]:
+      - strong [ref=e10]: 导入素材
+      - text: 导入文件与目录，自动识别到素材池
+    - generic [ref=e11]:
+      - generic [ref=e12]:
+        - paragraph [ref=e13]: 功能模块
+        - button "切换折叠" [ref=e14] [cursor=pointer]:
+          - img [ref=e15]
+      - generic [ref=e17]:
+        - button "收起子页面" [ref=e18] [cursor=pointer]:
+          - strong [ref=e19]: 收起子页面
+        - button "拆图模块 漫画文件解包" [ref=e20] [cursor=pointer]:
+          - strong [ref=e21]: 拆图模块
+          - generic [ref=e22]: 漫画文件解包
+        - button "画质提升 AI 超分辨率增强" [ref=e23] [cursor=pointer]:
+          - strong [ref=e24]: 画质提升
+          - generic [ref=e25]: AI 超分辨率增强
+        - button "导出模块 多格式转换与导出" [ref=e26] [cursor=pointer]:
+          - strong [ref=e27]: 导出模块
+          - generic [ref=e28]: 多格式转换与导出
+    - generic [ref=e29]:
+      - paragraph [ref=e30]: 执行设置
+      - paragraph [ref=e31]: 保留图片、导出格式与默认策略
+      - generic [ref=e32]:
+        - generic [ref=e33]:
+          - checkbox "保留原图 pages" [checked] [ref=e34]
+          - text: 保留原图 pages
+        - generic [ref=e35]:
+          - checkbox "保留增强图 pages_ai" [checked] [ref=e36]
+          - text: 保留增强图 pages_ai
+        - generic [ref=e37]: 输出格式：CBZ / PDF
+        - generic [ref=e38]: 增强倍率：1.5x
+        - generic [ref=e39]: 默认输出：outputs
+    - generic [ref=e40]:
+      - paragraph [ref=e41]: 任务结果
+      - paragraph [ref=e42]: 查看进度条、日志、错误与输出
+      - generic [ref=e43]:
+        - strong [ref=e86]: 舞冰的祈愿\51.pdf
+        - generic [ref=e87]: 画质提升
+        - emphasis [ref=e88]: 失败
+    - generic [ref=e44]:
+      - paragraph [ref=e45]: 当前选择
+      - generic [ref=e46]: 尚未选择素材
+  - main [ref=e47]:
+    - generic [ref=e48]:
+      - generic [ref=e49]:
+        - paragraph [ref=e50]: 漫画画质提升
+        - heading "导入" [level=1] [ref=e51]
+        - paragraph [ref=e52]: 本地漫画拆图、图片增强与多格式导出工作台
+      - button "刷新数据" [ref=e53] [cursor=pointer]:
+        - img [ref=e54]
+        - text: 刷新数据
+    - generic [ref=e56]:
+      - generic [ref=e57]:
+        - generic [ref=e58]:
+          - generic [ref=e59]:
+            - paragraph [ref=e60]: 拖拽导入
+            - heading "把漫画或目录加入素材池" [level=2] [ref=e61]
+          - generic [ref=e62]: 支持文件与目录
+        - generic [ref=e63]:
+          - img [ref=e65]
+          - strong [ref=e67]: 支持导入漫画文件，也支持导入整个目录
+          - paragraph [ref=e68]: 支持导入漫画文件，也支持导入整个目录。导入后会复制到素材池，并自动识别目录里的各类漫画格式与图片文件夹。
+          - generic [ref=e69]:
+            - button "导入文件" [ref=e70] [cursor=pointer]
+            - button "导入目录" [ref=e71] [cursor=pointer]
+            - button "切换素材目录" [ref=e72] [cursor=pointer]
+      - generic [ref=e73]:
+        - generic [ref=e74]:
+          - generic [ref=e75]:
+            - paragraph [ref=e76]: 素材池
+            - heading "当前素材池" [level=2] [ref=e77]
+          - generic [ref=e78]: 37 项
+        - generic [ref=e79]:
+          - button "切换素材目录" [ref=e80] [cursor=pointer]
+          - button "导入目录" [ref=e81] [cursor=pointer]
+          - button "清空选择" [ref=e82] [cursor=pointer]
+          - button "打开素材池" [ref=e83] [cursor=pointer]
+        - generic [ref=e84]:
+          - button "舞冰的祈愿\\51.pdf PDF · 10.9 MB" [ref=e89] [cursor=pointer]:
+            - generic [ref=e91]:
+              - strong [ref=e92]: 舞冰的祈愿\51.pdf
+              - generic [ref=e93]: PDF · 10.9 MB
+          - button "舞冰的祈愿\\52.pdf PDF · 12.1 MB" [ref=e94] [cursor=pointer]:
+            - generic [ref=e96]:
+              - strong [ref=e97]: 舞冰的祈愿\52.pdf
+              - generic [ref=e98]: PDF · 12.1 MB
+          - button "舞冰的祈愿\\53.pdf PDF · 88.9 MB" [ref=e99] [cursor=pointer]:
+            - generic [ref=e101]:
+              - strong [ref=e102]: 舞冰的祈愿\53.pdf
+              - generic [ref=e103]: PDF · 88.9 MB
+          - button "舞冰的祈愿\\54\\54机翻.pdf PDF · 14.3 MB" [ref=e104] [cursor=pointer]:
+            - generic [ref=e106]:
+              - strong [ref=e107]: 舞冰的祈愿\54\54机翻.pdf
+              - generic [ref=e108]: PDF · 14.3 MB
+          - button "舞冰的祈愿\\54\\54生肉（日文版）.pdf PDF · 9.9 MB" [ref=e109] [cursor=pointer]:
+            - generic [ref=e111]:
+              - strong [ref=e112]: 舞冰的祈愿\54\54生肉（日文版）.pdf
+              - generic [ref=e113]: PDF · 9.9 MB
+          - button "舞冰的祈愿\\54\\54精翻.pdf PDF · 13.2 MB" [ref=e114] [cursor=pointer]:
+            - generic [ref=e116]:
+              - strong [ref=e117]: 舞冰的祈愿\54\54精翻.pdf
+              - generic [ref=e118]: PDF · 13.2 MB
+          - button "舞冰的祈愿\\54精翻.pdf PDF · 13.2 MB" [ref=e119] [cursor=pointer]:
+            - generic [ref=e121]:
+              - strong [ref=e122]: 舞冰的祈愿\54精翻.pdf
+              - generic [ref=e123]: PDF · 13.2 MB
+          - button "舞冰的祈愿\\55\\55.pdf PDF · 19.4 MB" [ref=e124] [cursor=pointer]:
+            - generic [ref=e126]:
+              - strong [ref=e127]: 舞冰的祈愿\55\55.pdf
+              - generic [ref=e128]: PDF · 19.4 MB
+          - button "舞冰的祈愿\\55\\55生肉 日文版.pdf PDF · 6.5 MB" [ref=e129] [cursor=pointer]:
+            - generic [ref=e131]:
+              - strong [ref=e132]: 舞冰的祈愿\55\55生肉 日文版.pdf
+              - generic [ref=e133]: PDF · 6.5 MB
+          - button "舞冰的祈愿\\55\\渣渣机翻（慎看）.pdf PDF · 19.7 MB" [ref=e134] [cursor=pointer]:
+            - generic [ref=e136]:
+              - strong [ref=e137]: 舞冰的祈愿\55\渣渣机翻（慎看）.pdf
+              - generic [ref=e138]: PDF · 19.7 MB
+          - button "舞冰的祈愿\\55.pdf PDF · 19.4 MB" [ref=e139] [cursor=pointer]:
+            - generic [ref=e141]:
+              - strong [ref=e142]: 舞冰的祈愿\55.pdf
+              - generic [ref=e143]: PDF · 19.4 MB
+          - button "舞冰的祈愿\\56\\56日文版.pdf PDF · 14.2 MB" [ref=e144] [cursor=pointer]:
+            - generic [ref=e146]:
+              - strong [ref=e147]: 舞冰的祈愿\56\56日文版.pdf
+              - generic [ref=e148]: PDF · 14.2 MB
+          - button "舞冰的祈愿\\56\\56渣渣机翻.pdf PDF · 28.6 MB" [ref=e149] [cursor=pointer]:
+            - generic [ref=e151]:
+              - strong [ref=e152]: 舞冰的祈愿\56\56渣渣机翻.pdf
+              - generic [ref=e153]: PDF · 28.6 MB
+          - button "舞冰的祈愿\\56\\56精翻.pdf PDF · 22.4 MB" [ref=e154] [cursor=pointer]:
+            - generic [ref=e156]:
+              - strong [ref=e157]: 舞冰的祈愿\56\56精翻.pdf
+              - generic [ref=e158]: PDF · 22.4 MB
+          - button "舞冰的祈愿\\56精翻.pdf PDF · 22.4 MB" [ref=e159] [cursor=pointer]:
+            - generic [ref=e161]:
+              - strong [ref=e162]: 舞冰的祈愿\56精翻.pdf
+              - generic [ref=e163]: PDF · 22.4 MB
+          - button "舞冰的祈愿\\57.2.pdf PDF · 36.5 MB" [ref=e164] [cursor=pointer]:
+            - generic [ref=e166]:
+              - strong [ref=e167]: 舞冰的祈愿\57.2.pdf
+              - generic [ref=e168]: PDF · 36.5 MB
+          - button "舞冰的祈愿\\57话.pdf PDF · 13.6 MB" [ref=e169] [cursor=pointer]:
+            - generic [ref=e171]:
+              - strong [ref=e172]: 舞冰的祈愿\57话.pdf
+              - generic [ref=e173]: PDF · 13.6 MB
+          - button "舞冰的祈愿\\58.pdf PDF · 6.2 MB" [ref=e174] [cursor=pointer]:
+            - generic [ref=e176]:
+              - strong [ref=e177]: 舞冰的祈愿\58.pdf
+              - generic [ref=e178]: PDF · 6.2 MB
+          - button "舞冰的祈愿\\漫画1-50话 mobi格式\\[金牌得主]卷01.mobi MOBI · 56.6 MB" [ref=e179] [cursor=pointer]:
+            - generic [ref=e181]:
+              - strong [ref=e182]: 舞冰的祈愿\漫画1-50话 mobi格式\[金牌得主]卷01.mobi
+              - generic [ref=e183]: MOBI · 56.6 MB
+          - button "舞冰的祈愿\\漫画1-50话 mobi格式\\[金牌得主]卷02.mobi MOBI · 51.2 MB" [ref=e184] [cursor=pointer]:
+            - generic [ref=e186]:
+              - strong [ref=e187]: 舞冰的祈愿\漫画1-50话 mobi格式\[金牌得主]卷02.mobi
+              - generic [ref=e188]: MOBI · 51.2 MB
+          - button "舞冰的祈愿\\漫画1-50话 mobi格式\\[金牌得主]卷03.mobi MOBI · 48.2 MB" [ref=e189] [cursor=pointer]:
+            - generic [ref=e191]:
+              - strong [ref=e192]: 舞冰的祈愿\漫画1-50话 mobi格式\[金牌得主]卷03.mobi
+              - generic [ref=e193]: MOBI · 48.2 MB
+          - button "舞冰的祈愿\\漫画1-50话 mobi格式\\[金牌得主]卷04.mobi MOBI · 45.5 MB" [ref=e194] [cursor=pointer]:
+            - generic [ref=e196]:
+              - strong [ref=e197]: 舞冰的祈愿\漫画1-50话 mobi格式\[金牌得主]卷04.mobi
+              - generic [ref=e198]: MOBI · 45.5 MB
+          - button "舞冰的祈愿\\漫画1-50话 mobi格式\\[金牌得主]卷05.mobi MOBI · 37.8 MB" [ref=e199] [cursor=pointer]:
+            - generic [ref=e201]:
+              - strong [ref=e202]: 舞冰的祈愿\漫画1-50话 mobi格式\[金牌得主]卷05.mobi
+              - generic [ref=e203]: MOBI · 37.8 MB
+          - button "舞冰的祈愿\\漫画1-50话 mobi格式\\[金牌得主]卷06.mobi MOBI · 41.7 MB" [ref=e204] [cursor=pointer]:
+            - generic [ref=e206]:
+              - strong [ref=e207]: 舞冰的祈愿\漫画1-50话 mobi格式\[金牌得主]卷06.mobi
+              - generic [ref=e208]: MOBI · 41.7 MB
+          - button "舞冰的祈愿\\漫画1-50话 mobi格式\\[金牌得主]卷07.mobi MOBI · 33.9 MB" [ref=e209] [cursor=pointer]:
+            - generic [ref=e211]:
+              - strong [ref=e212]: 舞冰的祈愿\漫画1-50话 mobi格式\[金牌得主]卷07.mobi
+              - generic [ref=e213]: MOBI · 33.9 MB
+          - button "舞冰的祈愿\\漫画1-50话 mobi格式\\[金牌得主]卷08.mobi MOBI · 143 MB" [ref=e214] [cursor=pointer]:
+            - generic [ref=e216]:
+              - strong [ref=e217]: 舞冰的祈愿\漫画1-50话 mobi格式\[金牌得主]卷08.mobi
+              - generic [ref=e218]: MOBI · 143 MB
+          - button "舞冰的祈愿\\漫画1-50话 mobi格式\\[金牌得主]卷09.mobi MOBI · 181 MB" [ref=e219] [cursor=pointer]:
+            - generic [ref=e221]:
+              - strong [ref=e222]: 舞冰的祈愿\漫画1-50话 mobi格式\[金牌得主]卷09.mobi
+              - generic [ref=e223]: MOBI · 181 MB
+          - button "舞冰的祈愿\\漫画1-50话 mobi格式\\[金牌得主]卷10 至40话.mobi MOBI · 146 MB" [ref=e224] [cursor=pointer]:
+            - generic [ref=e226]:
+              - strong [ref=e227]: 舞冰的祈愿\漫画1-50话 mobi格式\[金牌得主]卷10 至40话.mobi
+              - generic [ref=e228]: MOBI · 146 MB
+          - button "舞冰的祈愿\\漫画1-50话 mobi格式\\[金牌得主]話041-045.mobi MOBI · 136 MB" [ref=e229] [cursor=pointer]:
+            - generic [ref=e231]:
+              - strong [ref=e232]: 舞冰的祈愿\漫画1-50话 mobi格式\[金牌得主]話041-045.mobi
+              - generic [ref=e233]: MOBI · 136 MB
+          - button "舞冰的祈愿\\漫画1-50话 mobi格式\\[金牌得主]話045.2-050.mobi MOBI · 31.8 MB" [ref=e234] [cursor=pointer]:
+            - generic [ref=e236]:
+              - strong [ref=e237]: 舞冰的祈愿\漫画1-50话 mobi格式\[金牌得主]話045.2-050.mobi
+              - generic [ref=e238]: MOBI · 31.8 MB
+          - button "舞冰的祈愿\\金牌得主_番外7 合宿的B面.pdf PDF · 1.9 MB" [ref=e239] [cursor=pointer]:
+            - generic [ref=e241]:
+              - strong [ref=e242]: 舞冰的祈愿\金牌得主_番外7 合宿的B面.pdf
+              - generic [ref=e243]: PDF · 1.9 MB
+          - button "舞冰的祈愿\\金牌得主_番外篇 Novice-A男子组.pdf PDF · 6.0 MB" [ref=e244] [cursor=pointer]:
+            - generic [ref=e246]:
+              - strong [ref=e247]: 舞冰的祈愿\金牌得主_番外篇 Novice-A男子组.pdf
+              - generic [ref=e248]: PDF · 6.0 MB
+          - button "舞冰的祈愿\\金牌得主_番外篇 冰焰之兽.pdf PDF · 3.3 MB" [ref=e249] [cursor=pointer]:
+            - generic [ref=e251]:
+              - strong [ref=e252]: 舞冰的祈愿\金牌得主_番外篇 冰焰之兽.pdf
+              - generic [ref=e253]: PDF · 3.3 MB
+          - button "舞冰的祈愿\\金牌得主_番外篇 小祈与小鸟.pdf PDF · 5.0 MB" [ref=e254] [cursor=pointer]:
+            - generic [ref=e256]:
+              - strong [ref=e257]: 舞冰的祈愿\金牌得主_番外篇 小祈与小鸟.pdf
+              - generic [ref=e258]: PDF · 5.0 MB
+          - button "舞冰的祈愿\\金牌得主_番外篇 阿司与前辈.pdf PDF · 2.6 MB" [ref=e259] [cursor=pointer]:
+            - generic [ref=e261]:
+              - strong [ref=e262]: 舞冰的祈愿\金牌得主_番外篇 阿司与前辈.pdf
+              - generic [ref=e263]: PDF · 2.6 MB
+          - button "舞冰的祈愿\\金牌得主_番外篇 雪原野兽.pdf PDF · 5.2 MB" [ref=e264] [cursor=pointer]:
+            - generic [ref=e266]:
+              - strong [ref=e267]: 舞冰的祈愿\金牌得主_番外篇 雪原野兽.pdf
+              - generic [ref=e268]: PDF · 5.2 MB
+          - button "舞冰的祈愿\\金牌得主_番外篇 首战当夜.pdf PDF · 2.9 MB" [ref=e269] [cursor=pointer]:
+            - generic [ref=e271]:
+              - strong [ref=e272]: 舞冰的祈愿\金牌得主_番外篇 首战当夜.pdf
+              - generic [ref=e273]: PDF · 2.9 MB

@@ -1,0 +1,26 @@
+{
+  "source_root": "D:\\cursor\\project12  漫画画质提升\\sources",
+  "output_root": "D:\\cursor\\project12  漫画画质提升\\outputs",
+  "auto_start_service": false,
+  "theme_mode": "dark",
+  "models": [
+    {
+      "name": "内置拆页与增强",
+      "kind": "主流程",
+      "status": "已接入",
+      "note": "支持 mobi、pdf、cbz、zip 和图片目录。"
+    },
+    {
+      "name": "多文件合并封装",
+      "kind": "封装模块",
+      "status": "已接入",
+      "note": "可将多个选中素材顺序拆页后合并导出。"
+    },
+    {
+      "name": "waifu2x / Real-ESRGAN",
+      "kind": "模型扩展",
+      "status": "预留",
+      "note": "后续可替换为更高质量增强引擎。"
+    }
+  ]
+}
