@@ -8,10 +8,25 @@ from typing import Iterator
 
 
 IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".tif", ".tiff"}
+_NUMBER_RE = re.compile(r"\d+(?:\.\d+)?")
 
 
 def natural_sort_key(value: str) -> list[object]:
-    return [int(chunk) if chunk.isdigit() else chunk.lower() for chunk in re.split(r"(\d+)", value)]
+    normalized = str(value).replace("\\", "/")
+    parts: list[object] = []
+    cursor = 0
+    for match in _NUMBER_RE.finditer(normalized):
+        if match.start() > cursor:
+            parts.append(normalized[cursor:match.start()].lower())
+        token = match.group(0)
+        if "." in token:
+            parts.extend(int(piece) for piece in token.split("."))
+        else:
+            parts.append(int(token))
+        cursor = match.end()
+    if cursor < len(normalized):
+        parts.append(normalized[cursor:].lower())
+    return parts
 
 
 def iter_image_files(root: Path) -> Iterator[Path]:

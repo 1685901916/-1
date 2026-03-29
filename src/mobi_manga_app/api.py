@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import cgi
+import hashlib
 import json
 import mimetypes
 import os
@@ -12,11 +13,14 @@ from datetime import datetime
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlparse
 
 from .dashboard import DEFAULT_SOURCE_ROOT, build_dashboard_data
+from .enhance import enhance_image
+from .enhancers import EnhanceOptions
 from .job_store import JobStore, StoredJob, job_to_payload
-from .merge import merge_sources
+from .merge import _merge_name, merge_sources
+from .utils import iter_image_files
 from .workflow import (
     run_analyze_only,
     run_enhance_only,
@@ -95,6 +99,54 @@ def _run_in_background(store: JobStore, job: StoredJob, step: str) -> None:
                 "package": run_package_only,
                 "export": run_export_only,
             }
+
+            if step == "merge_export":
+                _append_logs(current, "task start: merge_export", *summarize_job_context(current))
+                store.upsert(
+                    _touch(
+                        current,
+                        status="running",
+                        stage="export",
+                        progress=12,
+                        progress_label="Merging and enhancing pages",
+                        started_at=current.started_at or datetime.now().isoformat(timespec="seconds"),
+                        error_detail=None,
+                    )
+                )
+                source_paths = [Path(item) for item in str(current.source_path).split(";") if item]
+                manifest = merge_sources(
+                    source_paths,
+                    Path(current.output_dir),
+                    list(current.output_formats or ["cbz"]),
+                    target_name=current.name,
+                    enhancer=(current.enhancer if current.enhancer not in {"", "merge"} else "waifu2x"),
+                    enhance_scale=float(current.enhance_scale or 1.5),
+                    strategy=str(current.strategy or "quality_auto"),
+                    waifu2x_noise=int(current.waifu2x_noise),
+                    waifu2x_tta=bool(current.waifu2x_tta),
+                    waifu2x_model=str(current.waifu2x_model or "models-cunet"),
+                    image_format=str(current.pdf_image_format or "jpg"),
+                    quality_mode=str(current.pdf_quality_mode or "fast_auto"),
+                    keep_original_pages=bool(current.keep_original_pages),
+                    keep_enhanced_pages=bool(current.keep_enhanced_pages),
+                )
+                current.output_dir = str(manifest.get("output_dir") or current.output_dir)
+                current.stage = "export"
+                current.status = "ready"
+                current.progress = 100
+                current.progress_label = "Merge export complete"
+                current.page_count = int(manifest.get("page_count") or 0)
+                current.outputs = list(manifest.get("output_files") or manifest.get("files") or [])
+                current.logs = [*(current.logs or []), *[str(line) for line in (manifest.get("logs") or [])]]
+                current.notes = [
+                    f"merged sources: {current.source_name}",
+                    f"output_dir: {current.output_dir}",
+                    f"enhancer: {current.enhancer if current.enhancer not in {'', 'merge'} else 'waifu2x'}",
+                    f"keep_original_pages: {current.keep_original_pages}",
+                    f"keep_enhanced_pages: {current.keep_enhanced_pages}",
+                ]
+                store.upsert(_touch(current))
+                return
 
             if step == "full":
                 _append_logs(current, "task start: full", *summarize_job_context(current))
@@ -198,6 +250,7 @@ def create_handler(
     }
     store = JobStore(repo_root / ".work" / "appdata")
     frontend_dist = static_root if static_root is not None else (repo_root / "frontend" / "dist")
+    preview_root = repo_root / ".work" / "preview_cache"
 
     class ApiHandler(BaseHTTPRequestHandler):
         def _send_json(self, payload: dict, status: int = HTTPStatus.OK) -> None:
@@ -240,16 +293,122 @@ def create_handler(
 
             self._serve_file(frontend_dist / "index.html")
 
+        def _image_list(self, root: Path) -> list[Path]:
+            if not root.exists() or not root.is_dir():
+                return []
+            return list(iter_image_files(root))
+
+        def _job_output_dir(self, job: StoredJob, name: str) -> Path | None:
+            for item in job.outputs or []:
+                path = Path(item)
+                if path.exists() and path.name == name:
+                    return path
+            return None
+
+        def _preview_cache_file(self, source_name: str, enhancer: str, noise: int, image_format: str) -> Path:
+            safe_suffix = (image_format or "jpg").lower().lstrip(".") or "jpg"
+            digest = hashlib.sha1(f"v2|{source_name}|{enhancer}|{noise}|{safe_suffix}".encode("utf-8")).hexdigest()[:16]
+            return preview_root / digest / f"preview.{safe_suffix}"
+
+        def _generate_preview_image(
+            self,
+            before_image: Path,
+            source_name: str,
+            enhancer: str,
+            noise: int,
+            image_format: str,
+        ) -> Path | None:
+            if not before_image.exists():
+                return None
+            cache_file = self._preview_cache_file(source_name, enhancer, noise, image_format)
+            if cache_file.exists() and cache_file.stat().st_mtime >= before_image.stat().st_mtime:
+                return cache_file
+            cache_file.parent.mkdir(parents=True, exist_ok=True)
+            enhance_image(
+                before_image,
+                cache_file,
+                EnhanceOptions(scale=2.0, noise=noise, tta=False, model="models-cunet"),
+                enhancer_name=enhancer,
+            )
+            return cache_file if cache_file.exists() else None
+
+        def _preview_payload(
+            self,
+            source_name: str,
+            *,
+            enhancer: str = "waifu2x",
+            waifu2x_noise: int = 0,
+            image_format: str = "jpg",
+        ) -> dict:
+            source_path = (Path(state["source_root"]) / source_name).resolve()
+            if not source_path.exists():
+                raise FileNotFoundError(source_name)
+
+            matching_jobs = [
+                job
+                for job in store.list()
+                if job.source_name == source_name or Path(job.source_path).name == source_path.name
+            ]
+            matching_jobs.sort(key=lambda item: item.updated_at or "", reverse=True)
+
+            before_dir: Path | None = None
+            after_dir: Path | None = None
+            for job in matching_jobs:
+                before_dir = before_dir or self._job_output_dir(job, "pages")
+                after_dir = after_dir or self._job_output_dir(job, "pages_ai")
+                if before_dir and after_dir:
+                    break
+
+            if before_dir is None and source_path.is_dir():
+                before_dir = source_path
+
+            before_images = self._image_list(before_dir) if before_dir else []
+            after_images = self._image_list(after_dir) if after_dir else []
+            if not before_images and after_images:
+                before_images = after_images
+            if not before_images:
+                return {"source_name": source_name}
+
+            before_image = before_images[0]
+            after_image = None
+            preview_error = ""
+            requested_enhancer = (enhancer or "waifu2x").strip() or "waifu2x"
+            try:
+                after_image = self._generate_preview_image(
+                    before_image,
+                    source_name,
+                    requested_enhancer,
+                    waifu2x_noise if requested_enhancer == "waifu2x" else 0,
+                    image_format,
+                )
+            except Exception as exc:
+                preview_error = str(exc)
+
+            return {
+                "source_name": source_name,
+                "enhancer": requested_enhancer,
+                "before_url": f"/api/preview-file?path={before_image.as_posix()}",
+                "after_url": f"/api/preview-file?path={after_image.as_posix()}" if after_image else "",
+                "preview_error": preview_error,
+            }
+
         def _pick_directory(self, payload: dict) -> None:
             try:
                 import tkinter as tk
                 from tkinter import filedialog
 
+                current_path = Path(payload.get("current_path") or state["default_output_root"])
+                initial_path = current_path
+                if payload.get("prefer_parent"):
+                    initial_path = current_path.parent if current_path.exists() else current_path.parent
+                if not initial_path.exists():
+                    initial_path = initial_path.parent if initial_path.parent.exists() else Path.cwd()
+
                 root = tk.Tk()
                 root.withdraw()
                 root.attributes("-topmost", True)
                 selected = filedialog.askdirectory(
-                    initialdir=str(payload.get("current_path") or state["default_output_root"]),
+                    initialdir=str(initial_path),
                     title=payload.get("title") or "Select directory",
                 )
                 root.destroy()
@@ -365,6 +524,7 @@ def create_handler(
 
         def do_GET(self) -> None:
             parsed = urlparse(self.path)
+            query = parse_qs(parsed.query)
             if parsed.path == "/api/dashboard":
                 payload = build_dashboard_data(
                     repo_root,
@@ -375,6 +535,40 @@ def create_handler(
                 return
             if parsed.path == "/api/health":
                 self._send_json({"ok": True})
+                return
+
+            if parsed.path == "/api/enhance-preview":
+                source_name = (query.get("source_name") or [""])[0]
+                enhancer = (query.get("enhancer") or ["waifu2x"])[0]
+                image_format = (query.get("image_format") or ["jpg"])[0]
+                try:
+                    waifu2x_noise = int((query.get("waifu2x_noise") or ["0"])[0])
+                except ValueError:
+                    waifu2x_noise = 0
+                if not source_name:
+                    self._send_json({"preview": None})
+                    return
+                try:
+                    self._send_json(
+                        {
+                            "preview": self._preview_payload(
+                                source_name,
+                                enhancer=enhancer,
+                                waifu2x_noise=waifu2x_noise,
+                                image_format=image_format,
+                            )
+                        }
+                    )
+                except FileNotFoundError:
+                    self._send_json({"error": "source not found"}, status=HTTPStatus.NOT_FOUND)
+                return
+
+            if parsed.path == "/api/preview-file":
+                target = Path((query.get("path") or [""])[0])
+                if not target.exists() or not target.is_file():
+                    self._send_json({"error": "not found"}, status=HTTPStatus.NOT_FOUND)
+                    return
+                self._serve_file(target)
                 return
 
             if parsed.path == "/api/models":
@@ -470,13 +664,33 @@ def create_handler(
                         self._send_json({"error": "source not found", "missing": missing}, status=HTTPStatus.NOT_FOUND)
                         return
                     output_dir = Path(payload.get("output_dir") or state["default_output_root"])
-                    manifest = merge_sources(
-                        source_paths,
-                        output_dir,
-                        list(payload.get("output_formats") or ["cbz"]),
-                        target_name=payload.get("merge_name") or None,
+                    merge_name = str(payload.get("merge_name") or _merge_name(source_paths))
+                    job = store.create(
+                        name=merge_name,
+                        source_name=" + ".join(source_names),
+                        source_path=";".join(str(path) for path in source_paths),
+                        workspace_root=str(repo_root / ".work" / "app_jobs"),
+                        output_dir=str(output_dir),
+                        output_formats=list(payload.get("output_formats") or ["cbz"]),
+                        target_device=payload.get("target_device") or "android-tablet",
+                        keep_original_pages=bool(payload.get("keep_original_pages", True)),
+                        keep_enhanced_pages=bool(payload.get("keep_enhanced_pages", True)),
+                        strategy=str(payload.get("strategy") or "quality_auto"),
+                        enhancer=str(payload.get("enhancer") or "waifu2x"),
+                        enhance_scale=float(payload.get("enhance_scale") or 1.5),
+                        waifu2x_noise=int(payload.get("waifu2x_noise") if payload.get("waifu2x_noise") is not None else 0),
+                        waifu2x_tta=bool(payload.get("waifu2x_tta", False)),
+                        waifu2x_model=str(payload.get("waifu2x_model") or "models-cunet"),
+                        pdf_quality_mode=str(payload.get("pdf_quality_mode") or "fast_auto"),
+                        pdf_image_format=str(payload.get("pdf_image_format") or "jpg"),
                     )
-                    self._send_json({"merge": manifest}, status=HTTPStatus.CREATED)
+                    job.stage = "export"
+                    job.status = "queued"
+                    job.progress = 0
+                    job.progress_label = "Waiting to merge"
+                    store.upsert(job)
+                    _run_in_background(store, job, "merge_export")
+                    self._send_json({"job": job_to_payload(store.get(job.id) or job)}, status=HTTPStatus.ACCEPTED)
                     return
 
                 if parsed.path == "/api/pick-directory":

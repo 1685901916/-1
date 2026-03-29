@@ -137,6 +137,23 @@ const enhancerMeta = {
 const acceptInput = ".mobi,.cbz,.zip,.pdf,.epub";
 const storagePrefix = "manga-ui.";
 const validPages = new Set(["import", "split", "enhance", "export", "settings", "tasks", "task-detail"]);
+const imageFormatOptions = [
+  { value: "jpg", label: "JPG" },
+  { value: "png", label: "PNG" },
+  { value: "webp", label: "WEBP" },
+];
+const pdfQualityOptions = [
+  { value: "fast_auto", label: "体积优先", hint: "JPG/WEBP 更小，适合批量导出" },
+  { value: "quality_auto", label: "均衡", hint: "保留更多细节，体积适中" },
+  { value: "lossless", label: "高保真", hint: "优先保留质量，文件会更大" },
+];
+const waifuNoiseOptions = [
+  { value: -1, label: "关闭降噪" },
+  { value: 0, label: "弱降噪" },
+  { value: 1, label: "标准" },
+  { value: 2, label: "偏强" },
+  { value: 3, label: "最强" },
+];
 
 const readJson = (response) => response.json().catch(() => ({}));
 
@@ -175,6 +192,7 @@ function formatSize(sizeMb) {
   if (sizeMb == null || Number.isNaN(Number(sizeMb))) return "-";
   const value = Number(sizeMb);
   if (value >= 1024) return `${(value / 1024).toFixed(1)} GB`;
+  if (value > 0 && value < 0.1) return `${Math.max(1, Math.round(value * 1024))} KB`;
   return `${value.toFixed(value >= 100 ? 0 : 1)} MB`;
 }
 
@@ -191,6 +209,116 @@ function baseName(value) {
 
 function calculateEstimateSize(baseSizeMb, ratio, multiplier) {
   return Number(((baseSizeMb || 0) * ratio * multiplier).toFixed(1));
+}
+
+function estimateOutputRangeMb(source, outputFormat, options) {
+  const baseSize = Number(source?.size_mb || 0);
+  if (!(baseSize > 0)) return { low: 0, high: 0 };
+
+  const outputProfiles = {
+    cbz: { base: 1.0, variance: 0.14 },
+    zip: { base: 0.97, variance: 0.14 },
+    epub: { base: 0.88, variance: 0.18 },
+    mobi: { base: 0.81, variance: 0.2 },
+    pdf: { base: 1.06, variance: 0.22 },
+  };
+  const inputFactors = {
+    folder: 1.0,
+    cbz: 0.84,
+    zip: 0.84,
+    pdf: 0.7,
+    epub: 0.78,
+    mobi: 0.74,
+  };
+  const imageFactors = {
+    jpg: { fast_auto: 0.78, quality_auto: 0.92, lossless: 1.06 },
+    webp: { fast_auto: 0.68, quality_auto: 0.82, lossless: 0.95 },
+    png: { fast_auto: 1.38, quality_auto: 1.42, lossless: 1.48 },
+  };
+  const enhancerFactors = {
+    waifu2x: 1.12,
+    "realesrgan-anime": 1.2,
+    opencv: 1.04,
+  };
+
+  const profile = outputProfiles[outputFormat] || { base: 0.95, variance: 0.18 };
+  const inputFactor = inputFactors[String(source?.format || "").toLowerCase()] || 0.9;
+  const imageFormat = String(options?.imageFormat || "jpg").toLowerCase();
+  const qualityMode = String(options?.qualityMode || "quality_auto").toLowerCase();
+  const imageFactor = imageFactors[imageFormat]?.[qualityMode] ?? 0.92;
+  const enhancerFactor = enhancerFactors[options?.enhancer] ?? 1.08;
+  const deviceFactor = Number(options?.deviceMultiplier || 1);
+  const selectedCount = Number(options?.selectedCount || 1);
+  const batchFactor = selectedCount > 1 ? 0.96 : 1;
+
+  const estimate = baseSize * profile.base * inputFactor * imageFactor * enhancerFactor * deviceFactor * batchFactor;
+  const low = Math.max(1, estimate * (1 - profile.variance));
+  const high = Math.max(low + 1, estimate * (1 + profile.variance));
+  return {
+    low: Number(low.toFixed(1)),
+    high: Number(high.toFixed(1)),
+  };
+}
+
+function sumEstimateRanges(sources, outputFormat, options) {
+  return sources.reduce(
+    (acc, source) => {
+      const range = estimateOutputRangeMb(source, outputFormat, options);
+      return {
+        low: acc.low + range.low,
+        high: acc.high + range.high,
+      };
+    },
+    { low: 0, high: 0 },
+  );
+}
+
+function formatEstimateRange(range) {
+  if (!range || !(range.low > 0) || !(range.high > 0)) return "-";
+  const spread = Math.abs(range.high - range.low);
+  if (spread < 8) return `约 ${formatSize((range.low + range.high) / 2)}`;
+  return `${formatSize(range.low)} - ${formatSize(range.high)}`;
+}
+
+function naturalSortKey(value) {
+  return String(value || "")
+    .replace(/\\/g, "/")
+    .split(/(\d+(?:\.\d+)?)/)
+    .filter(Boolean)
+    .flatMap((chunk) => {
+      if (!/^\d+(?:\.\d+)?$/.test(chunk)) return [chunk.toLowerCase()];
+      return chunk.includes(".") ? chunk.split(".").map((part) => Number(part)) : [Number(chunk)];
+    });
+}
+
+function compareNatural(left, right) {
+  const leftKey = naturalSortKey(left);
+  const rightKey = naturalSortKey(right);
+  const maxLength = Math.max(leftKey.length, rightKey.length);
+  for (let index = 0; index < maxLength; index += 1) {
+    const leftPart = leftKey[index];
+    const rightPart = rightKey[index];
+    if (leftPart === rightPart) continue;
+    if (leftPart == null) return -1;
+    if (rightPart == null) return 1;
+    if (typeof leftPart === "number" && typeof rightPart === "number") return leftPart - rightPart;
+    return String(leftPart).localeCompare(String(rightPart), "zh-Hans-CN", { numeric: true, sensitivity: "base" });
+  }
+  return 0;
+}
+
+function sortEnhancerModels(models) {
+  const order = {
+    waifu2x: 0,
+    "realesrgan-anime": 1,
+    opencv: 9,
+  };
+  return [...(models || [])].sort((left, right) => {
+    const leftRank = order[left?.name] ?? 5;
+    const rightRank = order[right?.name] ?? 5;
+    if (leftRank !== rightRank) return leftRank - rightRank;
+    return String(left?.name || "").localeCompare(String(right?.name || ""));
+  });
 }
 
 function RefreshIcon() {
@@ -217,10 +345,183 @@ function ChevronIcon({ collapsed }) {
   );
 }
 
+function CloseIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M6 6l12 12M18 6 6 18" />
+    </svg>
+  );
+}
+
+function ModelGlyph({ name }) {
+  if (name === "waifu2x") {
+    return (
+      <div className="model-glyph glyph-waifu" aria-hidden="true">
+        <span className="glyph-dot dot-a" />
+        <span className="glyph-dot dot-b" />
+        <span className="glyph-dot dot-c" />
+        <span className="glyph-dot dot-d" />
+      </div>
+    );
+  }
+
+  if (name === "opencv") {
+    return (
+      <div className="model-glyph glyph-opencv" aria-hidden="true">
+        <span className="glyph-frame" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="model-glyph glyph-realesrgan" aria-hidden="true">
+      <span className="glyph-spark spark-a" />
+      <span className="glyph-spark spark-b" />
+      <span className="glyph-spark spark-c" />
+    </div>
+  );
+}
+
+function CompareSlider({ beforeSrc, afterSrc, beforeLabel = "\u539f\u56fe", afterLabel = "\u63d0\u5347\u540e", value, onChange, loading, emptyText }) {
+  const stageRef = useRef(null);
+  const dragStateRef = useRef({ active: false, x: 0, y: 0, pointerId: null });
+  const [zoom, setZoom] = useState(1);
+  const [offset, setOffset] = useState({ x: 0, y: 0 });
+  const safeValue = Math.min(100, Math.max(0, Number(value || 50)));
+  const hasPreview = Boolean(beforeSrc || afterSrc);
+
+  const clampOffset = (nextZoom, nextOffset) => {
+    const stage = stageRef.current;
+    if (!stage) return nextOffset;
+    const maxX = Math.max(0, ((nextZoom - 1) * stage.clientWidth) / 2);
+    const maxY = Math.max(0, ((nextZoom - 1) * stage.clientHeight) / 2);
+    return {
+      x: Math.min(maxX, Math.max(-maxX, nextOffset.x)),
+      y: Math.min(maxY, Math.max(-maxY, nextOffset.y)),
+    };
+  };
+  const commitZoom = (nextZoom) => {
+    const safeZoom = Math.min(4, Math.max(1, Number(nextZoom) || 1));
+    setZoom(safeZoom);
+    setOffset((current) => clampOffset(safeZoom, current));
+  };
+
+  useEffect(() => {
+    setZoom(1);
+    setOffset({ x: 0, y: 0 });
+    dragStateRef.current = { active: false, x: 0, y: 0, pointerId: null };
+  }, [beforeSrc, afterSrc]);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setOffset((current) => clampOffset(zoom, current));
+    };
+    if (typeof window === "undefined") return undefined;
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, [zoom]);
+
+  const handleZoomIn = () => commitZoom(zoom + 0.25);
+  const handleZoomOut = () => commitZoom(zoom - 0.25);
+  const handleResetView = () => {
+    setZoom(1);
+    setOffset({ x: 0, y: 0 });
+  };
+  const handleWheel = (event) => {
+    event.preventDefault();
+    commitZoom(zoom + (event.deltaY < 0 ? 0.2 : -0.2));
+  };
+  const handlePointerDown = (event) => {
+    if (zoom <= 1) return;
+    dragStateRef.current = {
+      active: true,
+      x: event.clientX,
+      y: event.clientY,
+      pointerId: event.pointerId,
+    };
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+  };
+  const handlePointerMove = (event) => {
+    if (!dragStateRef.current.active || zoom <= 1) return;
+    const deltaX = event.clientX - dragStateRef.current.x;
+    const deltaY = event.clientY - dragStateRef.current.y;
+    dragStateRef.current = { ...dragStateRef.current, x: event.clientX, y: event.clientY };
+    setOffset((current) => clampOffset(zoom, { x: current.x + deltaX, y: current.y + deltaY }));
+  };
+  const handlePointerUp = (event) => {
+    if (dragStateRef.current.pointerId != null) {
+      event.currentTarget.releasePointerCapture?.(dragStateRef.current.pointerId);
+    }
+    dragStateRef.current = { active: false, x: 0, y: 0, pointerId: null };
+  };
+
+  return (
+    <div className={`compare-shell ${loading ? "is-loading" : ""}`}>
+      {hasPreview ? (
+        <div className="compare-toolbar">
+          <div className="compare-zoom-group">
+            <button type="button" className="compare-tool-btn" onClick={handleZoomOut} disabled={zoom <= 1} aria-label="\u7f29\u5c0f\u9884\u89c8">
+              -
+            </button>
+            <span className="compare-zoom-readout">{Math.round(zoom * 100)}%</span>
+            <button type="button" className="compare-tool-btn" onClick={handleZoomIn} disabled={zoom >= 4} aria-label="\u653e\u5927\u9884\u89c8">
+              +
+            </button>
+            <button type="button" className="compare-tool-btn wide" onClick={handleResetView}>
+              {"\u91cd\u7f6e\u89c6\u56fe"}
+            </button>
+          </div>
+          <span className="compare-toolbar-note">{"\u6eda\u8f6e\u7f29\u653e\uff0c\u653e\u5927\u540e\u53ef\u62d6\u62fd\u540c\u6b65\u5e73\u79fb\u3002"}</span>
+        </div>
+      ) : null}
+      {hasPreview ? (
+        <div
+          ref={stageRef}
+          className={`compare-stage ${zoom > 1 ? "is-draggable" : ""}`}
+          onWheel={handleWheel}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerCancel={handlePointerUp}
+          onPointerLeave={handlePointerUp}
+        >
+          <div className="compare-media" style={{ transform: `translate(${offset.x}px, ${offset.y}px) scale(${zoom})` }}>
+            {beforeSrc ? <img className="compare-image" src={beforeSrc} alt={beforeLabel} draggable="false" /> : null}
+            {afterSrc ? (
+              <div className="compare-overlay" style={{ clipPath: `inset(0 0 0 ${safeValue}%)` }}>
+                <img className="compare-image" src={afterSrc} alt={afterLabel} draggable="false" />
+              </div>
+            ) : null}
+          </div>
+          <div className="compare-divider" style={{ left: `${safeValue}%` }}>
+            <span className="compare-handle" aria-hidden="true">&lt;&gt;</span>
+          </div>
+          <div className="compare-badge before">{beforeLabel}</div>
+          <div className="compare-badge after">{afterLabel}</div>
+          {loading ? <div className="compare-loading">Loading preview...</div> : null}
+        </div>
+      ) : (
+        <div className="compare-empty">{emptyText || "\u5f53\u524d\u7d20\u6750\u8fd8\u6ca1\u6709\u53ef\u7528\u9884\u89c8\u3002"}</div>
+      )}
+      {hasPreview ? (
+        <input
+          className="compare-range"
+          type="range"
+          min="0"
+          max="100"
+          value={safeValue}
+          onChange={(event) => onChange(Number(event.target.value))}
+          aria-label="\u8c03\u6574\u524d\u540e\u5bf9\u6bd4\u4f4d\u7f6e"
+        />
+      ) : null}
+    </div>
+  );
+}
+
 function HeroPanel({ title, text, onRefresh, primaryAction }) {
   return (
     <section className="hero-panel">
-      <div>
+      <div className="hero-copy">
         <p className="panel-kicker">漫画画质提升</p>
         <h1>{title}</h1>
         <p>{text}</p>
@@ -243,15 +544,14 @@ function HeroPanel({ title, text, onRefresh, primaryAction }) {
 function SidebarModules({ activePage, isCollapsed, onToggleCollapse, onSelect }) {
   return (
     <section className="sidebar-card group-card">
-      <div className="group-head">
-        <p className="sidebar-heading">功能模块</p>
-        <button type="button" className="collapse-btn" onClick={onToggleCollapse} aria-label="切换折叠">
-          <ChevronIcon collapsed={isCollapsed} />
-        </button>
-      </div>
+      <button type="button" className="group-head" onClick={onToggleCollapse} aria-expanded={!isCollapsed}>
+        <div className="group-head-copy">
+          <p className="sidebar-heading">功能模块</p>
+          <span className="sidebar-text">收起子页面</span>
+        </div>
+      </button>
       {!isCollapsed ? (
         <div className="module-list">
-          <div className="module-mini-note">收起子页面</div>
           <button type="button" className={`module-item ${activePage === "split" ? "is-active" : ""}`} onClick={() => onSelect("split")}>
             <strong>拆图模块</strong>
             <span>漫画文件拆包</span>
@@ -430,12 +730,193 @@ function ActionWorkspace({ content, actionLabel, onRun, sourcePool }) {
   );
 }
 
+function EnhanceWorkspace({
+  content,
+  sourceRoot,
+  outputPath,
+  selectedSourceItems,
+  enhancerModels,
+  selectedEnhancer,
+  onSelectEnhancer,
+  selectedImageFormat,
+  selectedPdfQualityMode,
+  selectedWaifuNoise,
+  onSelectWaifuNoise,
+  onSwitchDir,
+  onPickOutputPath,
+  onRun,
+  previewPair,
+  previewLoading,
+  compareValue,
+  onCompareChange,
+  sourcePool,
+}) {
+  const selectedLabel = selectedSourceItems.length
+    ? selectedSourceItems.length === 1
+      ? selectedSourceItems[0].name
+      : `已选 ${selectedSourceItems.length} 项素材`
+    : "尚未选择素材";
+  const previewNote = previewPair?.after_url
+    ? "右侧优先展示当前素材最近一次提升结果的前后对比。"
+    : "当前还没有已生成的 pages_ai 预览，执行提升后这里会自动更新。";
+
+  return (
+    <div className="content-grid enhance-layout">
+      <section className="surface-panel enhance-panel">
+        <div className="panel-head">
+          <div>
+            <p className="panel-kicker">{content.kicker}</p>
+            <h2>{content.cardTitle}</h2>
+          </div>
+          <span className="badge soft">单模块执行</span>
+        </div>
+
+        <div className="enhance-stack">
+          <section className="enhance-info-card">
+            <strong>当前模块说明</strong>
+            <p>{content.cardText}</p>
+            <p>{content.cardHint}</p>
+          </section>
+
+          <section className="enhance-control-card">
+            <div className="enhance-control-head">
+              <strong>目录快捷入口</strong>
+              <span>提升页里直接切换素材目录和导出目录，不用再跳设置页。</span>
+            </div>
+            <div className="enhance-action-grid">
+              <button type="button" className="ui-btn secondary" onClick={onSwitchDir}>
+                {"\u5207\u6362\u7d20\u6750\u76ee\u5f55"}
+              </button>
+              <button type="button" className="ui-btn secondary" onClick={onPickOutputPath}>
+                {"\u9009\u62e9\u5bfc\u51fa\u76ee\u5f55"}
+              </button>
+            </div>
+            <div className="enhance-path-list">
+              <div className="path-field">
+                <strong>当前素材池</strong>
+                <span title={sourceRoot || ""}>{sourceRoot || "\u672a\u8bbe\u7f6e\u7d20\u6750\u76ee\u5f55"}</span>
+              </div>
+              <div className="path-field">
+                <strong>当前导出目录</strong>
+                <span title={outputPath || ""}>{outputPath || "\u7cfb\u7edf\u9ed8\u8ba4\u8f93\u51fa\u76ee\u5f55"}</span>
+              </div>
+            </div>
+          </section>
+
+          <section className="enhance-model-section">
+            <div className="enhance-settings-head">
+              <strong>提升模型</strong>
+              <span>在提升页直接切模型和降噪，不用再跳去设置页。</span>
+            </div>
+            <div className="model-grid model-grid--compact enhance-model-grid">
+              {enhancerModels.map((model) => (
+                <button
+                  key={model.name}
+                  type="button"
+                  className={`model-card ${selectedEnhancer === model.name ? "is-active" : ""}`}
+                  onClick={() => onSelectEnhancer(model.name)}
+                >
+                  <div className={`model-mark ${model.name.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}`}>
+                    <ModelGlyph name={model.name} />
+                  </div>
+                  <div className="model-top">
+                    <strong>{enhancerMeta[model.name]?.title || model.name}</strong>
+                    {model.recommended ? <span className="model-badge">推荐</span> : null}
+                  </div>
+                  <div className="model-copy">
+                    <span>{enhancerMeta[model.name]?.description || "用于当前素材的增强模型。"}</span>
+                    <span>{model.available ? "当前可用" : "当前不可用"}</span>
+                  </div>
+                </button>
+              ))}
+            </div>
+            {selectedEnhancer === "waifu2x" ? (
+              <div className="enhance-inline-section">
+                <strong>waifu2x 降噪等级</strong>
+                <div className="format-pills">
+                  {waifuNoiseOptions.map((item) => (
+                    <button
+                      key={item.value}
+                      type="button"
+                      className={`pill-btn ${selectedWaifuNoise === item.value ? "is-active" : ""}`}
+                      onClick={() => onSelectWaifuNoise(item.value)}
+                    >
+                      {item.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+          </section>
+
+          <section className="enhance-summary-grid">
+            <div className="summary-card">
+              <h3>当前素材</h3>
+              <p>{selectedLabel}</p>
+            </div>
+            <div className="summary-card">
+              <h3>增强模型</h3>
+              <p>{enhancerMeta[selectedEnhancer]?.title || selectedEnhancer}</p>
+            </div>
+            <div className="summary-card">
+              <h3>输出图格式</h3>
+              <p>{String(selectedImageFormat || "jpg").toUpperCase()}</p>
+            </div>
+            <div className="summary-card">
+              <h3>压缩质量</h3>
+              <p>{pdfQualityOptions.find((item) => item.value === selectedPdfQualityMode)?.label || selectedPdfQualityMode}</p>
+            </div>
+          </section>
+
+          <div className="workflow-action-card">
+            <div>
+              <strong>执行提升</strong>
+              <p>确认素材后开始执行当前模块，右侧对比会在刷新后优先展示最新提升结果。</p>
+            </div>
+            <button type="button" className="ui-btn primary" onClick={onRun}>
+              执行提升
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <section className="surface-panel enhance-preview-panel">
+        <div className="panel-head">
+          <div>
+            <p className="panel-kicker">提升效果对比</p>
+            <h2>拖动查看前后差异</h2>
+          </div>
+          <span className="badge">{previewPair?.after_url ? "已就绪" : "等待结果"}</span>
+        </div>
+        <CompareSlider
+          beforeSrc={previewPair?.before_url}
+          afterSrc={previewPair?.after_url || previewPair?.before_url}
+          beforeLabel="原图"
+          afterLabel={previewPair?.after_url ? "提升后" : "待生成"}
+          value={compareValue}
+          onChange={onCompareChange}
+          loading={previewLoading}
+          emptyText="当前素材还没有可用预览。先选择图片目录，或者先跑一次提升任务。"
+        />
+        <div className="enhance-preview-copy">
+          <strong>预览来源</strong>
+          <p>{previewPair?.source_name || selectedLabel}</p>
+          <p>{previewNote}</p>
+        </div>
+      </section>
+      <div className="enhance-pool-span">{sourcePool}</div>
+    </div>
+  );
+}
+
 function ExportWorkspace({
   content,
   selectedSourceLabel,
   outputPath,
   outputDevice,
   onOutputDeviceChange,
+  mergeOutputEnabled,
+  onToggleMergeOutput,
   onPickOutputPath,
   onOpenOutputPath,
   formatCards,
@@ -481,6 +962,16 @@ function ExportWorkspace({
           </select>
         </section>
 
+        <section className="export-row-block">
+          <label className="field-label">合并输出策略</label>
+          <div className="toggle-card-row">
+            <label className="toggle-card">
+              <input type="checkbox" checked={mergeOutputEnabled} onChange={(event) => onToggleMergeOutput(event.target.checked)} />
+              <span>多选素材时合并输出为单文件</span>
+            </label>
+          </div>
+        </section>
+
         <div className="summary-grid">
           <section className="summary-card">
             <h3>导出位置</h3>
@@ -505,7 +996,7 @@ function ExportWorkspace({
           </button>
         </div>
 
-        <div className="format-card-list">
+        <div className="format-card-list format-card-list--long">
           {formatCards.map((item) => (
             <button key={item.key} type="button" className={`format-card ${item.selected ? "is-active" : ""}`} onClick={() => onToggleFormat(item.key)}>
               <div className="format-card-head">
@@ -536,9 +1027,17 @@ function SettingsWorkspace({
   keepEnhancedPages,
   onToggleOriginal,
   onToggleEnhanced,
+  selectedImageFormat,
+  onSelectImageFormat,
+  selectedPdfQualityMode,
+  onSelectPdfQualityMode,
   enhancerModels,
   selectedEnhancer,
   onSelectEnhancer,
+  selectedWaifuNoise,
+  onSelectWaifuNoise,
+  mergeOutputEnabled,
+  onToggleMergeOutput,
   outputPath,
   onPickOutputPath,
   onOpenOutputPath,
@@ -576,16 +1075,50 @@ function SettingsWorkspace({
         </section>
 
         <section className="setting-section">
-          <h3>默认导出格式</h3>
+          <h3>合并输出策略</h3>
+          <p className="setting-copy">多选素材时，一键全部运行会先合并、再优化、最后导出成一个文件；关闭时按每项素材分别处理。</p>
+          <div className="toggle-card-row">
+            <label className="toggle-card">
+              <input type="checkbox" checked={mergeOutputEnabled} onChange={(event) => onToggleMergeOutput(event.target.checked)} />
+              <span>多选素材时合并输出为单文件</span>
+            </label>
+          </div>
+        </section>
+
+        <section className="setting-section">
+          <h3>拆图图片格式</h3>
+          <p className="setting-copy">控制 PDF 拆图和后续 pages / pages_ai 的图片格式。漫画线稿建议优先试 PNG 或 WEBP。</p>
           <div className="format-pills">
-            {outputFormats.map((format) => (
+            {imageFormatOptions.map((item) => (
               <button
-                key={format}
+                key={item.value}
                 type="button"
-                className={`pill-btn ${selectedFormats.includes(format) ? "is-active" : ""}`}
-                onClick={() => onToggleFormat(format)}
+                className={`pill-btn ${selectedImageFormat === item.value ? "is-active" : ""}`}
+                onClick={() => onSelectImageFormat(item.value)}
               >
-                {String(format).toUpperCase()}
+                {item.label}
+              </button>
+            ))}
+          </div>
+        </section>
+
+        <section className="setting-section">
+          <h3>图片压缩质量</h3>
+          <p className="setting-copy">对 JPG / WEBP 生效。PNG 仍保持无损，主要用于在体积和细节之间取平衡。</p>
+          <div className="model-grid model-grid--compact">
+            {pdfQualityOptions.map((item) => (
+              <button
+                key={item.value}
+                type="button"
+                className={`model-card ${selectedPdfQualityMode === item.value ? "is-active" : ""}`}
+                onClick={() => onSelectPdfQualityMode(item.value)}
+              >
+                <div className="model-top">
+                  <strong>{item.label}</strong>
+                </div>
+                <div className="model-copy">
+                  <span>{item.hint}</span>
+                </div>
               </button>
             ))}
           </div>
@@ -594,7 +1127,7 @@ function SettingsWorkspace({
         <section className="setting-section">
           <h3>画质提升模型</h3>
           <p className="setting-copy">选择增强引擎。优先展示可用模型，推荐 AI 模型，OpenCV 作为兼容兜底。</p>
-          <div className="model-grid">
+          <div className="model-grid model-grid--compact">
             {enhancerModels.map((model) => (
               <button
                 key={model.name}
@@ -602,6 +1135,9 @@ function SettingsWorkspace({
                 className={`model-card ${selectedEnhancer === model.name ? "is-active" : ""}`}
                 onClick={() => onSelectEnhancer(model.name)}
               >
+                <div className={`model-mark ${model.name.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}`}>
+                  <ModelGlyph name={model.name} />
+                </div>
                 <div className="model-top">
                   <strong>{enhancerMeta[model.name]?.title || model.name}</strong>
                   {model.recommended ? <span className="model-badge">推荐</span> : null}
@@ -614,6 +1150,25 @@ function SettingsWorkspace({
             ))}
           </div>
         </section>
+
+        {selectedEnhancer === "waifu2x" ? (
+          <section className="setting-section">
+            <h3>waifu2x 降噪等级</h3>
+            <p className="setting-copy">线稿发虚时先试 0 或关闭；扫描噪点较重时再提高到 1 或 2。</p>
+            <div className="format-pills">
+              {waifuNoiseOptions.map((item) => (
+                <button
+                  key={item.value}
+                  type="button"
+                  className={`pill-btn ${selectedWaifuNoise === item.value ? "is-active" : ""}`}
+                  onClick={() => onSelectWaifuNoise(item.value)}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          </section>
+        ) : null}
 
         <section className="setting-section">
           <h3>导出地址</h3>
@@ -650,7 +1205,7 @@ function SettingsWorkspace({
         <section className="setting-section">
           <h3>导出文件模型选择</h3>
           <p className="setting-copy">下面的格式卡与导出页保持一致，在执行设置页也可以直接决定最终输出。</p>
-          <div className="format-card-list compact">
+          <div className="format-card-list format-card-list--long compact">
             {formatCards.map((item) => (
               <button key={item.key} type="button" className={`format-card ${item.selected ? "is-active" : ""}`} onClick={() => onToggleFormat(item.key)}>
                 <div className="format-card-head">
@@ -677,8 +1232,9 @@ function SettingsWorkspace({
   );
 }
 
-function TaskWorkspace({ jobs, currentJob, detailMode, onSelectJob, onBack, onOpenWorkspace, onOpenOutput }) {
+function TaskWorkspace({ jobs, currentJob, detailMode, taskPage, totalTaskPages, onTaskPageChange, onSelectJob, onDeleteJob, onBack, onOpenWorkspace, onOpenOutput }) {
   if (!detailMode) {
+    const pagedJobs = jobs.slice((taskPage - 1) * 10, taskPage * 10);
     return (
       <section className="surface-panel task-list-panel single">
         <div className="panel-head">
@@ -690,8 +1246,20 @@ function TaskWorkspace({ jobs, currentJob, detailMode, onSelectJob, onBack, onOp
         </div>
         <div className="task-list">
           {jobs.length ? (
-            jobs.map((job) => (
-              <button key={job.id} type="button" className="task-row" onClick={() => onSelectJob(job.id)}>
+            pagedJobs.map((job) => (
+              <div
+                key={job.id}
+                className="task-row"
+                role="button"
+                tabIndex={0}
+                onClick={() => onSelectJob(job.id)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    onSelectJob(job.id);
+                  }
+                }}
+              >
                 <div className="task-main">
                   <strong>{job.name}</strong>
                   <span>{job.source_name}</span>
@@ -707,12 +1275,34 @@ function TaskWorkspace({ jobs, currentJob, detailMode, onSelectJob, onBack, onOp
                     <div className="task-progress-fill" style={{ width: `${Number(job.progress || 0)}%` }} />
                   </div>
                 </div>
-              </button>
+                <button
+                  type="button"
+                  className="task-delete-btn"
+                  aria-label={`删除任务 ${job.name}`}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onDeleteJob(job.id);
+                  }}
+                >
+                  <CloseIcon />
+                </button>
+              </div>
             ))
           ) : (
             <div className="empty-card">当前还没有任务结果。</div>
           )}
         </div>
+        {totalTaskPages > 1 ? (
+          <div className="task-pagination">
+            <button type="button" className="ui-btn secondary" disabled={taskPage <= 1} onClick={() => onTaskPageChange(taskPage - 1)}>
+              上一页
+            </button>
+            <span className="task-pagination-info">{taskPage} / {totalTaskPages}</span>
+            <button type="button" className="ui-btn secondary" disabled={taskPage >= totalTaskPages} onClick={() => onTaskPageChange(taskPage + 1)}>
+              下一页
+            </button>
+          </div>
+        ) : null}
       </section>
     );
   }
@@ -791,25 +1381,37 @@ export default function App() {
   const [isFunctionGroupCollapsed, setIsFunctionGroupCollapsed] = useState(false);
   const [selectedSources, setSelectedSources] = useState([]);
   const [selectedJobId, setSelectedJobId] = useState("");
+  const [taskPage, setTaskPage] = useState(1);
   const [selectedFormats, setSelectedFormats] = useState(() => readStoredValue("formats", ["cbz", "pdf"]));
   const [keepOriginalPages, setKeepOriginalPages] = useState(() => readStoredValue("keep-original", true));
   const [keepEnhancedPages, setKeepEnhancedPages] = useState(() => readStoredValue("keep-enhanced", true));
+  const [selectedImageFormat, setSelectedImageFormat] = useState(() => readStoredValue("image-format", "jpg"));
+  const [selectedPdfQualityMode, setSelectedPdfQualityMode] = useState(() => readStoredValue("pdf-quality-mode", "fast_auto"));
   const [outputDevice, setOutputDevice] = useState(() => readStoredValue("output-device", "android-tablet"));
   const [selectedEnhancer, setSelectedEnhancer] = useState(() => readStoredValue("enhancer", "waifu2x"));
-  const [enhancerModels, setEnhancerModels] = useState([
+  const [selectedWaifuNoise, setSelectedWaifuNoise] = useState(() => readStoredValue("waifu-noise", 0));
+  const [mergeOutputEnabled, setMergeOutputEnabled] = useState(() => readStoredValue("merge-output-enabled", false));
+  const [enhancerModels, setEnhancerModels] = useState(sortEnhancerModels([
     { name: "waifu2x", available: true, recommended: true },
-    { name: "opencv", available: true, recommended: false },
-  ]);
+    { name: "realesrgan-anime", available: true, recommended: false },
+  ]));
   const [isTaskDetailOpen, setIsTaskDetailOpen] = useState(false);
   const [message, setMessage] = useState("");
   const [isDragActive, setIsDragActive] = useState(false);
+  const [enhancePreview, setEnhancePreview] = useState(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [compareValue, setCompareValue] = useState(50);
   const fileInputRef = useRef(null);
 
   useEffect(() => writeStoredValue("formats", selectedFormats), [selectedFormats]);
   useEffect(() => writeStoredValue("keep-original", keepOriginalPages), [keepOriginalPages]);
   useEffect(() => writeStoredValue("keep-enhanced", keepEnhancedPages), [keepEnhancedPages]);
+  useEffect(() => writeStoredValue("image-format", selectedImageFormat), [selectedImageFormat]);
+  useEffect(() => writeStoredValue("pdf-quality-mode", selectedPdfQualityMode), [selectedPdfQualityMode]);
   useEffect(() => writeStoredValue("output-device", outputDevice), [outputDevice]);
   useEffect(() => writeStoredValue("enhancer", selectedEnhancer), [selectedEnhancer]);
+  useEffect(() => writeStoredValue("waifu-noise", selectedWaifuNoise), [selectedWaifuNoise]);
+  useEffect(() => writeStoredValue("merge-output-enabled", mergeOutputEnabled), [mergeOutputEnabled]);
 
   useEffect(() => {
     if (typeof window === "undefined") return undefined;
@@ -842,17 +1444,29 @@ export default function App() {
       .filter(Boolean);
   }, [data.export_options]);
 
+  const sortedSourceBooks = useMemo(
+    () => [...(data.source_books || [])].sort((left, right) => compareNatural(left?.name, right?.name)),
+    [data.source_books],
+  );
+
   const selectedSourceItems = useMemo(
-    () => selectedSources.map((name) => data.source_books.find((item) => item.name === name)).filter(Boolean),
-    [data.source_books, selectedSources],
+    () => selectedSources.map((name) => sortedSourceBooks.find((item) => item.name === name)).filter(Boolean),
+    [sortedSourceBooks, selectedSources],
   );
 
   const currentJob = useMemo(
     () => data.jobs.find((item) => item.id === selectedJobId) || data.jobs[0] || null,
     [data.jobs, selectedJobId],
   );
+  const totalTaskPages = useMemo(() => Math.max(1, Math.ceil((data.jobs?.length || 0) / 10)), [data.jobs]);
 
-  const previewSource = useMemo(() => selectedSourceItems[0] || data.source_books[0] || null, [selectedSourceItems, data.source_books]);
+  useEffect(() => {
+    if (taskPage > totalTaskPages) {
+      setTaskPage(totalTaskPages);
+    }
+  }, [taskPage, totalTaskPages]);
+
+  const previewSource = useMemo(() => selectedSourceItems[0] || sortedSourceBooks[0] || null, [selectedSourceItems, sortedSourceBooks]);
   const currentDevice = useMemo(() => deviceOptions.find((option) => option.value === outputDevice) || deviceOptions[0], [outputDevice]);
 
   const estimatedSourceSize = useMemo(() => {
@@ -861,6 +1475,11 @@ export default function App() {
     }
     return Number(previewSource?.size_mb || 0);
   }, [selectedSourceItems, previewSource]);
+
+  const estimateSources = useMemo(
+    () => (selectedSourceItems.length ? selectedSourceItems : previewSource ? [previewSource] : []),
+    [selectedSourceItems, previewSource],
+  );
 
   const exportCards = useMemo(
     () =>
@@ -875,10 +1494,18 @@ export default function App() {
           key: format,
           ...meta,
           selected: selectedFormats.includes(format),
-          sizeText: `约 ${formatSize(calculateEstimateSize(estimatedSourceSize, meta.ratio, currentDevice.multiplier))}`,
+          sizeText: formatEstimateRange(
+            sumEstimateRanges(estimateSources, format, {
+              imageFormat: selectedImageFormat,
+              qualityMode: selectedPdfQualityMode,
+              enhancer: selectedEnhancer,
+              deviceMultiplier: currentDevice.multiplier,
+              selectedCount: estimateSources.length,
+            }),
+          ),
         };
       }),
-    [exportFormatOptions, selectedFormats, estimatedSourceSize, currentDevice.multiplier],
+    [exportFormatOptions, selectedFormats, estimateSources, selectedImageFormat, selectedPdfQualityMode, selectedEnhancer, currentDevice.multiplier],
   );
 
   const currentContent =
@@ -900,14 +1527,25 @@ export default function App() {
     setSelectedJobId((current) => current || payload.jobs?.[0]?.id || "");
   };
 
+  const upsertLocalJob = (job) => {
+    if (!job?.id) return;
+    setData((current) => {
+      const nextJobs = [job, ...(current.jobs || []).filter((item) => item.id !== job.id)];
+      return {
+        ...current,
+        jobs: nextJobs,
+      };
+    });
+  };
+
   const loadModels = async () => {
     const response = await fetch("/api/models");
     const payload = await readJson(response);
     if (!response.ok) throw new Error(payload.error || "读取模型失败");
     const nextModels = Array.isArray(payload.models) && payload.models.length
-      ? payload.models.filter((item) => item.name !== "realesrgan")
+      ? payload.models.filter((item) => item.name !== "opencv")
       : enhancerModels;
-    setEnhancerModels(nextModels);
+    setEnhancerModels(sortEnhancerModels(nextModels));
     if (!nextModels.some((item) => item.name === selectedEnhancer && item.available)) {
       const preferred = nextModels.find((item) => item.recommended && item.available) || nextModels.find((item) => item.available) || nextModels[0];
       if (preferred?.name) {
@@ -925,11 +1563,41 @@ export default function App() {
     return () => window.clearInterval(timer);
   }, []);
 
-  const pickDirectory = async (currentPath, title) => {
+  const loadEnhancePreview = async (sourceName) => {
+    if (!sourceName) {
+      setEnhancePreview(null);
+      return;
+    }
+    setPreviewLoading(true);
+    try {
+      const params = new URLSearchParams({
+        source_name: sourceName,
+        enhancer: selectedEnhancer,
+        waifu2x_noise: String(selectedWaifuNoise),
+        image_format: selectedImageFormat,
+      });
+      const response = await fetch(`/api/enhance-preview?${params.toString()}`);
+      const payload = await readJson(response);
+      if (!response.ok) throw new Error(payload.error || "Failed to load preview");
+      setEnhancePreview(payload.preview || null);
+    } catch {
+      setEnhancePreview(null);
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activePage !== "enhance") return;
+    const sourceName = selectedSourceItems[0]?.name || previewSource?.name || "";
+    loadEnhancePreview(sourceName).catch(() => {});
+  }, [activePage, selectedSourceItems, previewSource, selectedEnhancer, selectedWaifuNoise, selectedImageFormat, data.jobs]);
+
+  const pickDirectory = async (currentPath, title, options = {}) => {
     const response = await fetch("/api/pick-directory", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ current_path: currentPath, title }),
+      body: JSON.stringify({ current_path: currentPath, title, prefer_parent: currentPath === data.source_root, ...options }),
     });
     const payload = await readJson(response);
     if (!response.ok) throw new Error(payload.error || "选择目录失败");
@@ -989,7 +1657,7 @@ export default function App() {
     if (!path) return;
     await updateConfig({ source_root: path });
     await loadDashboard();
-    setMessage(`素材池目录已切换：${path}`);
+    setMessage(`Source folder switched: ${path}`);
   };
 
   const chooseOutputRoot = async () => {
@@ -1018,8 +1686,11 @@ export default function App() {
         output_formats: selectedFormats,
         keep_original_pages: keepOriginalPages,
         keep_enhanced_pages: keepEnhancedPages,
+        pdf_quality_mode: selectedPdfQualityMode,
+        pdf_image_format: selectedImageFormat,
         enhancer: selectedEnhancer,
         enhance_scale: 1.5,
+        waifu2x_noise: selectedWaifuNoise,
       }),
     });
     const payload = await readJson(response);
@@ -1035,41 +1706,94 @@ export default function App() {
     });
     const payload = await readJson(response);
     if (!response.ok) throw new Error(payload.error || "执行失败");
+    return payload.job;
   };
 
-  const runCurrentModule = async () => {
+  const startJobFull = async (jobId) => {
+    const response = await fetch(`/api/jobs/${jobId}/run-full`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+    });
+    const payload = await readJson(response);
+    if (!response.ok) throw new Error(payload.error || "执行失败");
+    return payload.job;
+  };
+
+  const showTasksView = async (jobId = "", { refreshNow = true } = {}) => {
+    if (jobId) setSelectedJobId(jobId);
+    setIsTaskDetailOpen(false);
+    setActivePage("tasks");
+    if (refreshNow) {
+      await loadDashboard();
+    }
+    window.setTimeout(() => {
+      loadDashboard().catch(() => {});
+    }, 600);
+  };
+
+  const mergeSelectedSources = async () => {
+    if (selectedSourceItems.length < 2) {
+      setMessage("至少选择两项素材后才能合并优化导出");
+      return;
+    }
+    const response = await fetch("/api/merge-sources", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        source_names: selectedSourceItems.map((item) => item.name),
+        output_dir: data.default_output_root,
+        output_formats: selectedFormats,
+        enhancer: selectedEnhancer,
+        enhance_scale: 1.5,
+        strategy: "quality_auto",
+        waifu2x_noise: selectedWaifuNoise,
+        waifu2x_tta: false,
+        waifu2x_model: "models-cunet",
+        pdf_quality_mode: selectedPdfQualityMode,
+        pdf_image_format: selectedImageFormat,
+        keep_original_pages: keepOriginalPages,
+        keep_enhanced_pages: keepEnhancedPages,
+      }),
+    });
+    const payload = await readJson(response);
+    if (!response.ok) throw new Error(payload.error || "合并优化导出失败");
+    if (payload.job?.id) {
+      upsertLocalJob(payload.job);
+      setSelectedJobId(payload.job.id);
+      setIsTaskDetailOpen(false);
+    }
+    await showTasksView(payload.job?.id || "", { refreshNow: false });
+    setMessage(`已开始生成优化合集任务`);
+  };
+
+  const runCurrentModule = async ({ stayOnPage = false, sourceOverride = null } = {}) => {
     try {
-      if (!selectedSourceItems.length) {
-        setMessage("请先在右侧素材池中选择素材。");
-        return;
-      }
-
       if (activePage === "export" && selectedSourceItems.length > 1) {
-        const response = await fetch("/api/merge-sources", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            source_names: selectedSourceItems.map((item) => item.name),
-            output_dir: data.default_output_root,
-            output_formats: selectedFormats,
-          }),
-        });
-        const payload = await readJson(response);
-        if (!response.ok) throw new Error(payload.error || "合集导出失败");
-        await loadDashboard();
-        setMessage(`已生成合集：${payload.merge?.merge_name || "未命名合集"}`);
-        return;
+        throw new Error("多选导出请在执行设置中开启“多选时合并输出为单文件”，然后点击一键全部运行");
       }
 
-      const source = selectedSourceItems[0];
+      const source = sourceOverride || selectedSourceItems[0] || previewSource;
+      if (!source) {
+        setMessage("璇峰厛閫夋嫨绱犳潗锛屾垨鑰呭厛瀵煎叆涓€涓洰褰曘€?");
+        return;
+      }
       const step = activePage === "split" ? "split" : activePage === "enhance" ? "enhance_module" : "export_module";
       const job = await createJob(source);
-      await startJobStep(job.id, step);
+      upsertLocalJob(job);
+      const runningJob = await startJobStep(job.id, step);
+      upsertLocalJob(runningJob || job);
       setSelectedJobId(job.id);
-      await loadDashboard();
-      setMessage(`${formatStage(step)} 已启动：${source.name}`);
+      if (!stayOnPage) {
+        await showTasksView(job.id, { refreshNow: false });
+      } else {
+        window.setTimeout(() => {
+          loadDashboard().catch(() => {});
+          loadEnhancePreview(source.name).catch(() => {});
+        }, 1200);
+      }
+      setMessage(`${formatStage(step)} ????${source.name}`);
     } catch (error) {
-      setMessage(error.message || "执行失败");
+      setMessage(error.message || "????");
     }
   };
 
@@ -1080,14 +1804,19 @@ export default function App() {
         setMessage("请先在右侧素材池中选择素材。");
         return;
       }
+      if (mergeOutputEnabled && sourceList.length > 1) {
+        await mergeSelectedSources();
+        return;
+      }
       const createdJobs = [];
       for (const source of sourceList) {
         const job = await createJob(source);
-        await startJobStep(job.id, "full");
-        createdJobs.push(job);
+        upsertLocalJob(job);
+        const runningJob = await startJobFull(job.id);
+        upsertLocalJob(runningJob || job);
+        createdJobs.push(runningJob || job);
       }
-      setSelectedJobId(createdJobs[0]?.id || "");
-      await loadDashboard();
+      await showTasksView(createdJobs[0]?.id || "", { refreshNow: false });
       setMessage(`已启动 ${createdJobs.length} 项素材的一键处理。`);
     } catch (error) {
       setMessage(error.message || "执行失败");
@@ -1099,7 +1828,7 @@ export default function App() {
   };
 
   const clearSelectedSources = () => setSelectedSources([]);
-  const selectAllSources = () => setSelectedSources(data.source_books.map((item) => item.name));
+  const selectAllSources = () => setSelectedSources(sortedSourceBooks.map((item) => item.name));
 
   const toggleFormat = (format) => {
     setSelectedFormats((current) => {
@@ -1109,6 +1838,9 @@ export default function App() {
   };
 
   const currentSelectionTitle = selectedSourceItems.length > 1 ? `已选 ${selectedSourceItems.length} 项素材` : selectedSourceItems[0]?.name || "尚未选择素材";
+  const currentSelectionMeta = selectedSourceItems.length
+    ? `${selectedSourceItems.length === 1 ? formatSourceType(selectedSourceItems[0].format) : "多素材模式"} · ${formatSize(estimatedSourceSize)}`
+    : "尚未选择素材";
 
   const onDropFile = (event) => {
     event.preventDefault();
@@ -1117,9 +1849,25 @@ export default function App() {
     if (file) importFile(file).catch((error) => setMessage(error.message || "导入文件失败"));
   };
 
+  const deleteJob = async (jobId) => {
+    try {
+      const response = await fetch(`/api/jobs/${jobId}`, { method: "DELETE" });
+      const payload = await readJson(response);
+      if (!response.ok) throw new Error(payload.error || "删除任务失败");
+      if (selectedJobId === jobId) {
+        setSelectedJobId("");
+        setIsTaskDetailOpen(false);
+      }
+      await loadDashboard();
+      setMessage("任务已删除");
+    } catch (error) {
+      setMessage(error.message || "删除任务失败");
+    }
+  };
+
   const sourcePool = (
-    <SourcePool
-      sources={data.source_books}
+      <SourcePool
+        sources={sortedSourceBooks}
       selectedSources={selectedSources}
       onToggle={toggleSource}
       onSelectAll={selectAllSources}
@@ -1151,14 +1899,22 @@ export default function App() {
 
   if (activePage === "settings") {
     workspace = (
-      <SettingsWorkspace
-        keepOriginalPages={keepOriginalPages}
-        keepEnhancedPages={keepEnhancedPages}
-        onToggleOriginal={setKeepOriginalPages}
-        onToggleEnhanced={setKeepEnhancedPages}
-        enhancerModels={enhancerModels}
-        selectedEnhancer={selectedEnhancer}
-        onSelectEnhancer={setSelectedEnhancer}
+        <SettingsWorkspace
+          keepOriginalPages={keepOriginalPages}
+          keepEnhancedPages={keepEnhancedPages}
+          onToggleOriginal={setKeepOriginalPages}
+          onToggleEnhanced={setKeepEnhancedPages}
+          selectedImageFormat={selectedImageFormat}
+          onSelectImageFormat={setSelectedImageFormat}
+          selectedPdfQualityMode={selectedPdfQualityMode}
+          onSelectPdfQualityMode={setSelectedPdfQualityMode}
+          enhancerModels={enhancerModels}
+          selectedEnhancer={selectedEnhancer}
+          onSelectEnhancer={setSelectedEnhancer}
+          selectedWaifuNoise={selectedWaifuNoise}
+          onSelectWaifuNoise={setSelectedWaifuNoise}
+          mergeOutputEnabled={mergeOutputEnabled}
+          onToggleMergeOutput={setMergeOutputEnabled}
         outputPath={data.default_output_root}
         onPickOutputPath={() => chooseOutputRoot().catch((error) => setMessage(error.message || "设置导出目录失败"))}
         onOpenOutputPath={() => openPath(data.default_output_root).catch((error) => setMessage(error.message || "打开导出目录失败"))}
@@ -1180,6 +1936,8 @@ export default function App() {
         outputPath={data.default_output_root}
         outputDevice={outputDevice}
         onOutputDeviceChange={setOutputDevice}
+        mergeOutputEnabled={mergeOutputEnabled}
+        onToggleMergeOutput={setMergeOutputEnabled}
         onPickOutputPath={() => chooseOutputRoot().catch((error) => setMessage(error.message || "设置导出目录失败"))}
         onOpenOutputPath={() => openPath(data.default_output_root).catch((error) => setMessage(error.message || "打开导出目录失败"))}
         formatCards={exportCards}
@@ -1191,17 +1949,45 @@ export default function App() {
     );
   } else if (activePage === "tasks") {
     workspace = (
-      <TaskWorkspace
-        jobs={data.jobs}
-        currentJob={currentJob}
-        detailMode={isTaskDetailOpen}
-        onSelectJob={(jobId) => {
-          setSelectedJobId(jobId);
-          setIsTaskDetailOpen(true);
+        <TaskWorkspace
+          jobs={data.jobs}
+          currentJob={currentJob}
+          detailMode={isTaskDetailOpen}
+          taskPage={taskPage}
+          totalTaskPages={totalTaskPages}
+          onTaskPageChange={setTaskPage}
+          onSelectJob={(jobId) => {
+            setSelectedJobId(jobId);
+            setIsTaskDetailOpen(true);
         }}
+        onDeleteJob={(jobId) => deleteJob(jobId)}
         onBack={() => setIsTaskDetailOpen(false)}
         onOpenWorkspace={() => openPath(currentJob?.workspace).catch((error) => setMessage(error.message || "打开工作目录失败"))}
         onOpenOutput={() => openPath(currentJob?.output_dir).catch((error) => setMessage(error.message || "打开输出目录失败"))}
+      />
+    );
+  } else if (activePage === "enhance") {
+    workspace = (
+      <EnhanceWorkspace
+        content={currentContent}
+        sourceRoot={data.source_root}
+        outputPath={data.default_output_root}
+        selectedSourceItems={selectedSourceItems}
+        enhancerModels={enhancerModels}
+        selectedEnhancer={selectedEnhancer}
+        onSelectEnhancer={setSelectedEnhancer}
+        selectedImageFormat={selectedImageFormat}
+        selectedPdfQualityMode={selectedPdfQualityMode}
+        selectedWaifuNoise={selectedWaifuNoise}
+        onSelectWaifuNoise={setSelectedWaifuNoise}
+        onSwitchDir={() => switchSourceRoot().catch((error) => setMessage(error.message || "鍒囨崲绱犳潗鐩綍澶辫触"))}
+        onPickOutputPath={() => chooseOutputRoot().catch((error) => setMessage(error.message || "璁剧疆瀵煎嚭鐩綍澶辫触"))}
+        onRun={runCurrentModule}
+        previewPair={enhancePreview}
+        previewLoading={previewLoading}
+        compareValue={compareValue}
+        onCompareChange={setCompareValue}
+        sourcePool={sourcePool}
       />
     );
   } else if (activePage !== "import") {
@@ -1256,7 +2042,7 @@ export default function App() {
             {selectedSourceItems.length ? (
               <>
                 <strong>{currentSelectionTitle}</strong>
-                <span>{selectedSourceItems.length === 1 ? `${formatSourceType(selectedSourceItems[0].format)} · ${formatSize(selectedSourceItems[0].size_mb)}` : "多素材模式"}</span>
+                <span>{currentSelectionMeta}</span>
               </>
             ) : (
               "尚未选择素材"
