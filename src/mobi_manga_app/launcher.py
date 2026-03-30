@@ -170,8 +170,8 @@ class NavButton(QToolButton):
         self.setToolButtonStyle(Qt.ToolButtonTextUnderIcon)
         self.setCheckable(True)
         self.setCursor(Qt.PointingHandCursor)
-        self.setMinimumSize(QSize(72, 86))
-        self.setMaximumWidth(84)
+        self.setMinimumSize(QSize(64, 72))
+        self.setMaximumWidth(80)
         self.setObjectName("NavButton")
 
 
@@ -192,8 +192,8 @@ class LauncherWindow(QMainWindow):
         app_icon = QIcon(str(icon_path()))
         self.setWindowIcon(app_icon)
         self.setWindowTitle(APP_NAME)
-        self.resize(1360, 920)
-        self.setMinimumSize(1080, 700)
+        self.resize(1400, 880)
+        self.setMinimumSize(1200, 750)
         self.build_ui()
         self.apply_theme()
         self.refresh_status()
@@ -247,14 +247,14 @@ class LauncherWindow(QMainWindow):
         self.setCentralWidget(root)
 
         shell = QHBoxLayout(root)
-        shell.setContentsMargins(16, 16, 16, 16)
-        shell.setSpacing(16)
+        shell.setContentsMargins(0, 0, 0, 0)
+        shell.setSpacing(0)
 
         sidebar = QFrame()
         sidebar.setObjectName("Sidebar")
         sidebar_layout = QVBoxLayout(sidebar)
-        sidebar_layout.setContentsMargins(16, 20, 16, 20)
-        sidebar_layout.setSpacing(16)
+        sidebar_layout.setContentsMargins(0, 20, 0, 20)
+        sidebar_layout.setSpacing(8)
 
         brand_card = QFrame()
         brand_card.setObjectName("BrandCard")
@@ -317,7 +317,8 @@ class LauncherWindow(QMainWindow):
         shell.addWidget(sidebar, 0)
 
         workspace = QVBoxLayout()
-        workspace.setSpacing(16)
+        workspace.setContentsMargins(24, 24, 24, 24)
+        workspace.setSpacing(20)
         shell.addLayout(workspace, 1)
 
         hero = Card()
@@ -615,16 +616,16 @@ class LauncherWindow(QMainWindow):
             QWidget { background: #1b1d24; color: #eef2ff; font-size: 14px; font-family: "Microsoft YaHei UI", "Noto Sans SC", sans-serif; }
             QMainWindow { background: #14161c; }
             QLabel { background: transparent; border: 0; }
-            QFrame#Sidebar { background: #262a34; border: 1px solid #303546; border-radius: 26px; min-width: 110px; max-width: 110px; }
+            QFrame#Sidebar { background: #262a34; border: 0; border-right: 1px solid #1a1d24; min-width: 80px; max-width: 80px; }
             QFrame#BrandCard { background: transparent; border: 0; }
             QLabel#BrandMark { min-width: 52px; min-height: 52px; max-width: 52px; max-height: 52px; border-radius: 18px; background: qlineargradient(x1:0,y1:0,x2:1,y2:1, stop:0 #2f80ff, stop:1 #3658d5); color: white; font: 800 22px "Segoe UI"; qproperty-alignment: AlignCenter; }
             QLabel#BrandTitle { color: #f4f7ff; font: 700 16px "Microsoft YaHei UI"; margin-top: 4px; }
             QLabel#BrandSubtitle { color: #96a3c5; font-size: 13px; margin-top: 2px; }
-            QToolButton#NavButton { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.04); border-radius: 20px; padding: 14px 8px; color: #e8ecff; font: 700 13px "Microsoft YaHei UI"; min-height: 24px; }
-            QToolButton#NavButton:checked { background: rgba(49, 94, 210, 0.22); border: 1px solid rgba(78, 124, 255, 0.65); color: #ffffff; }
+            QToolButton#NavButton { background: transparent; border: 0; border-radius: 12px; padding: 16px 8px; color: #9ca3c0; font: 600 12px "Microsoft YaHei UI"; min-height: 32px; }
+            QToolButton#NavButton:checked { background: rgba(78, 124, 255, 0.15); color: #6bb1ff; }
             QPushButton#ThemeButton { background: #2f3443; border: 1px solid #3d465d; border-radius: 18px; padding: 14px 12px; color: #f0f4ff; font: 700 13px "Microsoft YaHei UI"; }
-            QFrame#Card, QFrame#HeroCard { background: #252934; border: 1px solid #34394a; border-radius: 24px; padding: 20px; }
-            QFrame#HeroCard { min-height: 180px; padding: 24px; }
+            QFrame#Card, QFrame#HeroCard { background: #252934; border: 1px solid #2d3240; border-radius: 16px; padding: 28px; }
+            QFrame#HeroCard { min-height: 200px; padding: 32px; }
             QLabel#CardTitle { color: #ffffff; font: 700 22px "Microsoft YaHei UI"; margin-bottom: 8px; }
             QLabel#CardSubtitle, QLabel#BodyText, QLabel#MiniMeta { color: #9ca7c0; line-height: 1.6; }
             QLabel#HeroBadge { color: #5ba6ff; font: 700 13px "Microsoft YaHei UI"; }
