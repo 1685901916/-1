@@ -142,11 +142,6 @@ const imageFormatOptions = [
   { value: "png", label: "PNG" },
   { value: "webp", label: "WEBP" },
 ];
-const pdfQualityOptions = [
-  { value: "fast_auto", label: "体积优先", hint: "JPG/WEBP 更小，适合批量导出" },
-  { value: "quality_auto", label: "均衡", hint: "保留更多细节，体积适中" },
-  { value: "lossless", label: "高保真", hint: "优先保留质量，文件会更大" },
-];
 const waifuNoiseOptions = [
   { value: -1, label: "关闭降噪" },
   { value: 0, label: "弱降噪" },
@@ -878,7 +873,7 @@ function EnhanceWorkspace({
                     </button>
                   ))}
                 </div>
-                <strong>waifu2x 鏀惧ぇ鍊嶇巼</strong>
+                <strong>waifu2x 放大倍率</strong>
                 <div className="format-pills">
                   {waifuScaleOptions.map((item) => (
                     <button
@@ -909,7 +904,7 @@ function EnhanceWorkspace({
               <p>{String(selectedImageFormat || "jpg").toUpperCase()}</p>
             </div>
             <div className="summary-card">
-              <h3>压缩质量</h3>
+              <h3>放大倍数</h3>
               <p>{selectedEnhancer === "waifu2x" ? `${Number(selectedWaifuScale || 1.5).toFixed(1)}x` : "1.5x"}</p>
             </div>
           </section>
@@ -1213,8 +1208,8 @@ function SettingsWorkspace({
                 </button>
               ))}
             </div>
-            <h3>waifu2x 鏀惧ぇ鍊嶇巼</h3>
-            <p className="setting-copy">鏀惧ぇ鍊嶇巼浼氱洿鎺ュ奖鍝嶅儚绱犳€婚噺鍜屽鍑轰綋绉紝棰勪及澶у皬浼氶殢涔嬭皟鏁淬€?/p>
+            <h3>waifu2x 放大倍率</h3>
+            <p className="setting-copy">放大倍率会直接影响像素总量和导出体积，预估大小会随之调整。</p>
             <div className="format-pills">
               {waifuScaleOptions.map((item) => (
                 <button
