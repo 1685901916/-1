@@ -1,0 +1,40 @@
+0 verbose cli D:\nodejs\node.exe D:\nodejs\node_modules\npm\bin\npm-cli.js
+0 verbose cli D:\nodejs\node.exe D:\nodejs\node_modules\npm\bin\npm-cli.js
+1 info using npm@10.9.3
+1 info using npm@10.9.3
+2 info using node@v22.20.0
+3 silly config load:file:D:\nodejs\node_modules\npm\npmrc
+4 silly config load:file:f:\cursor\project12  漫画画质提升\.npmrc
+2 info using node@v22.20.0
+5 silly config load:file:C:\Users\Arthur\.npmrc
+3 silly config load:file:D:\nodejs\node_modules\npm\npmrc
+6 silly config load:file:F:\OpenClaw\npm-global\etc\npmrc
+7 verbose title npm exec @modelcontextprotocol/server-puppeteer
+4 silly config load:file:f:\cursor\project12  漫画画质提升\.npmrc
+8 verbose argv "exec" "--yes" "--" "@modelcontextprotocol/server-puppeteer"
+5 silly config load:file:C:\Users\Arthur\.npmrc
+6 silly config load:file:F:\OpenClaw\npm-global\etc\npmrc
+7 verbose title npm exec @modelcontextprotocol/server-puppeteer
+9 verbose logfile logs-max:10 dir:f:\cursor\project12  漫画画质提升\.npm-cache\_logs\2026-03-30T02_51_09_219Z-
+8 verbose argv "exec" "--yes" "--" "@modelcontextprotocol/server-puppeteer"
+10 verbose logfile f:\cursor\project12  漫画画质提升\.npm-cache\_logs\2026-03-30T02_51_09_219Z-debug-0.log
+9 verbose logfile logs-max:10 dir:f:\cursor\project12  漫画画质提升\.npm-cache\_logs\2026-03-30T02_51_09_219Z-
+10 verbose logfile f:\cursor\project12  漫画画质提升\.npm-cache\_logs\2026-03-30T02_51_09_219Z-debug-0.log
+11 silly logfile start cleaning logs, removing 3 files
+11 silly logfile start cleaning logs, removing 3 files
+12 silly packumentCache heap:4345298944 maxSize:1086324736 maxEntrySize:543162368
+12 silly packumentCache heap:4345298944 maxSize:1086324736 maxEntrySize:543162368
+13 silly logfile done cleaning log files
+13 silly logfile done cleaning log files
+14 http fetch GET 200 https://registry.npmmirror.com/@modelcontextprotocol%2fserver-puppeteer 116ms (cache revalidated)
+14 http fetch GET 200 https://registry.npmmirror.com/@modelcontextprotocol%2fserver-puppeteer 115ms (cache revalidated)
+15 silly packumentCache heap:4345298944 maxSize:1086324736 maxEntrySize:543162368
+15 silly packumentCache heap:4345298944 maxSize:1086324736 maxEntrySize:543162368
+16 silly packumentCache heap:4345298944 maxSize:1086324736 maxEntrySize:543162368
+16 silly packumentCache heap:4345298944 maxSize:1086324736 maxEntrySize:543162368
+17 verbose cwd f:\cursor\project12  漫画画质提升
+18 verbose os Windows_NT 10.0.22631
+19 verbose node v22.20.0
+20 verbose npm  v10.9.3
+21 verbose exit 0
+22 info ok

@@ -429,6 +429,7 @@ def create_handler(
             source_name: str,
             enhancer: str,
             noise: int,
+            scale: float,
             image_format: str,
         ) -> Path | None:
             if not before_image.exists():
@@ -437,12 +438,33 @@ def create_handler(
             if cache_file.exists() and cache_file.stat().st_mtime >= before_image.stat().st_mtime:
                 return cache_file
             cache_file.parent.mkdir(parents=True, exist_ok=True)
+
+            # 裁剪中心区域并放大，让增强效果更明显
+            from PIL import Image
+            img = Image.open(before_image)
+            w, h = img.size
+            # 取中心 40% 区域
+            crop_w, crop_h = int(w * 0.4), int(h * 0.4)
+            left = (w - crop_w) // 2
+            top = (h - crop_h) // 2
+            cropped = img.crop((left, top, left + crop_w, top + crop_h))
+
+            # 保存裁剪后的临时文件
+            temp_crop = cache_file.parent / f"temp_crop_{cache_file.name}"
+            cropped.save(temp_crop, quality=95)
+
+            # 增强裁剪后的图像
             enhance_image(
-                before_image,
+                temp_crop,
                 cache_file,
-                EnhanceOptions(scale=2.0, noise=noise, tta=False, model="models-cunet"),
+                EnhanceOptions(scale=scale, noise=noise, tta=False, model="models-cunet"),
                 enhancer_name=enhancer,
             )
+
+            # 清理临时文件
+            if temp_crop.exists():
+                temp_crop.unlink()
+
             return cache_file if cache_file.exists() else None
 
         def _preview_payload(
@@ -451,6 +473,7 @@ def create_handler(
             *,
             enhancer: str = "waifu2x",
             waifu2x_noise: int = 0,
+            enhance_scale: float = 1.5,
             image_format: str = "jpg",
         ) -> dict:
             source_path = (Path(state["source_root"]) / source_name).resolve()
@@ -484,14 +507,32 @@ def create_handler(
 
             before_image = before_images[0]
             after_image = None
+            cropped_before = None
             preview_error = ""
             requested_enhancer = (enhancer or "waifu2x").strip() or "waifu2x"
             try:
+                # 生成裁剪后的原图和增强图
+                from PIL import Image
+                img = Image.open(before_image)
+                w, h = img.size
+                crop_w, crop_h = int(w * 0.4), int(h * 0.4)
+                left = (w - crop_w) // 2
+                top = (h - crop_h) // 2
+                cropped = img.crop((left, top, left + crop_w, top + crop_h))
+
+                # 保存裁剪后的原图
+                cache_dir = repo_root / ".work" / ".preview_cache"
+                cache_dir.mkdir(parents=True, exist_ok=True)
+                cropped_before = cache_dir / f"before_{source_name}_{before_image.stem}.jpg"
+                cropped.save(cropped_before, quality=95)
+
+                # 生成增强图
                 after_image = self._generate_preview_image(
                     before_image,
                     source_name,
                     requested_enhancer,
                     waifu2x_noise if requested_enhancer == "waifu2x" else 0,
+                    enhance_scale,
                     image_format,
                 )
             except Exception as exc:
@@ -500,7 +541,7 @@ def create_handler(
             return {
                 "source_name": source_name,
                 "enhancer": requested_enhancer,
-                "before_url": f"/api/preview-file?path={before_image.as_posix()}",
+                "before_url": f"/api/preview-file?path={cropped_before.as_posix()}" if cropped_before else f"/api/preview-file?path={before_image.as_posix()}",
                 "after_url": f"/api/preview-file?path={after_image.as_posix()}" if after_image else "",
                 "preview_error": preview_error,
             }
@@ -658,6 +699,10 @@ def create_handler(
                     waifu2x_noise = int((query.get("waifu2x_noise") or ["0"])[0])
                 except ValueError:
                     waifu2x_noise = 0
+                try:
+                    enhance_scale = float((query.get("enhance_scale") or ["1.5"])[0])
+                except ValueError:
+                    enhance_scale = 1.5
                 if not source_name:
                     self._send_json({"preview": None})
                     return
@@ -668,6 +713,7 @@ def create_handler(
                                 source_name,
                                 enhancer=enhancer,
                                 waifu2x_noise=waifu2x_noise,
+                                enhance_scale=enhance_scale,
                                 image_format=image_format,
                             )
                         }

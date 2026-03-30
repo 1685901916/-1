@@ -154,6 +154,8 @@ const waifuScaleOptions = [
   { value: 1.0, label: "1.0x" },
   { value: 1.5, label: "1.5x" },
   { value: 2.0, label: "2.0x" },
+  { value: 3.0, label: "3.0x" },
+  { value: 4.0, label: "4.0x" },
 ];
 
 const readJson = (response) => response.json().catch(() => ({}));
@@ -515,7 +517,7 @@ function CompareSlider({ beforeSrc, afterSrc, beforeLabel = "\u539f\u56fe", afte
           <div className="compare-media" style={{ transform: `translate(${offset.x}px, ${offset.y}px) scale(${zoom})` }}>
             {beforeSrc ? <img className="compare-image" src={beforeSrc} alt={beforeLabel} draggable="false" /> : null}
             {afterSrc ? (
-              <div className="compare-overlay" style={{ clipPath: `inset(0 0 0 ${safeValue}%)` }}>
+              <div className="compare-overlay" style={{ clipPath: `inset(0 ${100 - safeValue}% 0 0)` }}>
                 <img className="compare-image" src={afterSrc} alt={afterLabel} draggable="false" />
               </div>
             ) : null}
@@ -773,6 +775,7 @@ function EnhanceWorkspace({
   onSwitchDir,
   onPickOutputPath,
   onRun,
+  onGeneratePreview,
   previewPair,
   previewLoading,
   compareValue,
@@ -888,6 +891,23 @@ function EnhanceWorkspace({
                 </div>
               </div>
             ) : null}
+            {selectedEnhancer === "realesrgan-anime" ? (
+              <div className="enhance-inline-section">
+                <strong>Real-ESRGAN 放大倍率</strong>
+                <div className="format-pills">
+                  {waifuScaleOptions.map((item) => (
+                    <button
+                      key={item.value}
+                      type="button"
+                      className={`pill-btn ${selectedWaifuScale === item.value ? "is-active" : ""}`}
+                      onClick={() => onSelectWaifuScale(item.value)}
+                    >
+                      {item.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
           </section>
 
           <section className="enhance-summary-grid">
@@ -905,7 +925,7 @@ function EnhanceWorkspace({
             </div>
             <div className="summary-card">
               <h3>放大倍数</h3>
-              <p>{selectedEnhancer === "waifu2x" ? `${Number(selectedWaifuScale || 1.5).toFixed(1)}x` : "1.5x"}</p>
+              <p>{selectedEnhancer === "waifu2x" || selectedEnhancer === "realesrgan-anime" ? `${Number(selectedWaifuScale || 1.5).toFixed(1)}x` : "1.5x"}</p>
             </div>
           </section>
 
@@ -927,7 +947,14 @@ function EnhanceWorkspace({
             <p className="panel-kicker">提升效果对比</p>
             <h2>拖动查看前后差异</h2>
           </div>
-          <span className="badge">{previewPair?.after_url ? "已就绪" : "等待结果"}</span>
+          <button
+            type="button"
+            className="ui-btn primary"
+            onClick={onGeneratePreview}
+            disabled={!selectedSourceItems.length}
+          >
+            生成预览
+          </button>
         </div>
         <CompareSlider
           beforeSrc={previewPair?.before_url}
@@ -1209,6 +1236,25 @@ function SettingsWorkspace({
               ))}
             </div>
             <h3>waifu2x 放大倍率</h3>
+            <p className="setting-copy">放大倍率会直接影响像素总量和导出体积，预估大小会随之调整。</p>
+            <div className="format-pills">
+              {waifuScaleOptions.map((item) => (
+                <button
+                  key={item.value}
+                  type="button"
+                  className={`pill-btn ${selectedWaifuScale === item.value ? "is-active" : ""}`}
+                  onClick={() => onSelectWaifuScale(item.value)}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          </section>
+        ) : null}
+
+        {selectedEnhancer === "realesrgan-anime" ? (
+          <section className="setting-section">
+            <h3>Real-ESRGAN 放大倍率</h3>
             <p className="setting-copy">放大倍率会直接影响像素总量和导出体积，预估大小会随之调整。</p>
             <div className="format-pills">
               {waifuScaleOptions.map((item) => (
@@ -1645,7 +1691,7 @@ export default function App() {
         source_name: sourceName,
         enhancer: selectedEnhancer,
         waifu2x_noise: String(selectedWaifuNoise),
-        enhance_scale: String(selectedEnhancer === "waifu2x" ? selectedWaifuScale : 1.5),
+        enhance_scale: String((selectedEnhancer === "waifu2x" || selectedEnhancer === "realesrgan-anime") ? selectedWaifuScale : 1.5),
         image_format: selectedImageFormat,
       });
       const response = await fetch(`/api/enhance-preview?${params.toString()}`);
@@ -1663,7 +1709,7 @@ export default function App() {
     if (activePage !== "enhance") return;
     const sourceName = selectedSourceItems[0]?.name || previewSource?.name || "";
     loadEnhancePreview(sourceName).catch(() => {});
-  }, [activePage, selectedSourceItems, previewSource, selectedEnhancer, selectedWaifuNoise, selectedWaifuScale, selectedImageFormat, data.jobs]);
+  }, [activePage, selectedSourceItems, previewSource, selectedEnhancer, selectedWaifuNoise, selectedWaifuScale, selectedImageFormat]);
 
   const pickDirectory = async (currentPath, title, options = {}) => {
     const response = await fetch("/api/pick-directory", {
@@ -1760,7 +1806,7 @@ export default function App() {
         keep_enhanced_pages: keepEnhancedPages,
         pdf_image_format: selectedImageFormat,
         enhancer: selectedEnhancer,
-        enhance_scale: selectedEnhancer === "waifu2x" ? selectedWaifuScale : 1.5,
+        enhance_scale: (selectedEnhancer === "waifu2x" || selectedEnhancer === "realesrgan-anime") ? selectedWaifuScale : 1.5,
         waifu2x_noise: selectedWaifuNoise,
       }),
     });
@@ -1815,7 +1861,7 @@ export default function App() {
         output_dir: data.default_output_root,
         output_formats: selectedFormats,
         enhancer: selectedEnhancer,
-        enhance_scale: selectedEnhancer === "waifu2x" ? selectedWaifuScale : 1.5,
+        enhance_scale: (selectedEnhancer === "waifu2x" || selectedEnhancer === "realesrgan-anime") ? selectedWaifuScale : 1.5,
         strategy: "quality_auto",
         waifu2x_noise: selectedWaifuNoise,
         waifu2x_tta: false,
@@ -2054,6 +2100,10 @@ export default function App() {
         onSwitchDir={() => switchSourceRoot().catch((error) => setMessage(error.message || "鍒囨崲绱犳潗鐩綍澶辫触"))}
         onPickOutputPath={() => chooseOutputRoot().catch((error) => setMessage(error.message || "璁剧疆瀵煎嚭鐩綍澶辫触"))}
         onRun={runCurrentModule}
+        onGeneratePreview={() => {
+          const sourceName = selectedSourceItems[0]?.name || previewSource?.name;
+          if (sourceName) loadEnhancePreview(sourceName).catch(() => {});
+        }}
         previewPair={enhancePreview}
         previewLoading={previewLoading}
         compareValue={compareValue}
@@ -2127,6 +2177,12 @@ export default function App() {
             <strong>{selectedFormats[0]?.toUpperCase() || "CBZ"}</strong>
             <span>本次将处理 {selectedSourceItems.length || (previewSource ? 1 : 0)} 本</span>
           </div>
+          {data.jobs?.length > 0 && (
+            <div className="mini-card" style={{ marginTop: "8px" }}>
+              <strong>任务统计</strong>
+              <span>已完成 {data.jobs.filter(j => j.status === "ready").length} / 总计 {data.jobs.length}</span>
+            </div>
+          )}
         </section>
       </aside>
 

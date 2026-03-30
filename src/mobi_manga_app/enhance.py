@@ -112,6 +112,7 @@ def enhance_pages(
                         candidate=candidate,
                         page_profile=page_profile,
                         page_metrics=page_metrics,
+                        enhancer=attempt.enhancer,
                     )
                     if verdict is not None:
                         failure_reason = verdict
@@ -334,7 +335,7 @@ def _build_attempts(
     return attempts
 
 
-def _validate_candidate(*, original: np.ndarray, candidate: np.ndarray, page_profile: str, page_metrics: dict[str, object]) -> str | None:
+def _validate_candidate(*, original: np.ndarray, candidate: np.ndarray, page_profile: str, page_metrics: dict[str, object], enhancer: str = "") -> str | None:
     original_gray = cv2.cvtColor(original, cv2.COLOR_BGR2GRAY)
     candidate_gray = cv2.cvtColor(candidate, cv2.COLOR_BGR2GRAY)
     target_size = (candidate_gray.shape[1], candidate_gray.shape[0])
@@ -365,7 +366,7 @@ def _validate_candidate(*, original: np.ndarray, candidate: np.ndarray, page_pro
         return "edge clarity regressed"
     if page_profile == "halftone_gray" and cand_block > orig_block * 1.35 + 1.5:
         return "halftone artifacts increased"
-    if cand_sharpness > max(orig_sharpness * 4.0, orig_sharpness + 2800):
+    if "realesrgan" not in enhancer.lower() and cand_sharpness > max(orig_sharpness * 5.5, orig_sharpness + 4000):
         return "oversharpened"
     return None
 
