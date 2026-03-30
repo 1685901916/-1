@@ -150,8 +150,8 @@ class Card(QFrame):
         super().__init__()
         self.setObjectName("Card")
         self.body = QVBoxLayout(self)
-        self.body.setContentsMargins(18, 18, 18, 18)
-        self.body.setSpacing(10)
+        self.body.setContentsMargins(24, 24, 24, 24)
+        self.body.setSpacing(14)
         if title:
             title_label = QLabel(title)
             title_label.setObjectName("CardTitle")
@@ -247,20 +247,20 @@ class LauncherWindow(QMainWindow):
         self.setCentralWidget(root)
 
         shell = QHBoxLayout(root)
-        shell.setContentsMargins(10, 8, 10, 10)
-        shell.setSpacing(10)
+        shell.setContentsMargins(16, 16, 16, 16)
+        shell.setSpacing(16)
 
         sidebar = QFrame()
         sidebar.setObjectName("Sidebar")
         sidebar_layout = QVBoxLayout(sidebar)
-        sidebar_layout.setContentsMargins(12, 16, 12, 16)
-        sidebar_layout.setSpacing(14)
+        sidebar_layout.setContentsMargins(16, 20, 16, 20)
+        sidebar_layout.setSpacing(16)
 
         brand_card = QFrame()
         brand_card.setObjectName("BrandCard")
         brand_layout = QVBoxLayout(brand_card)
-        brand_layout.setContentsMargins(8, 8, 8, 8)
-        brand_layout.setSpacing(8)
+        brand_layout.setContentsMargins(10, 12, 10, 12)
+        brand_layout.setSpacing(6)
         brand_mark = QLabel("文")
         brand_mark.setObjectName("BrandMark")
         brand_layout.addWidget(brand_mark, 0, Qt.AlignHCenter)
@@ -272,6 +272,25 @@ class LauncherWindow(QMainWindow):
         brand_subtitle.setAlignment(Qt.AlignHCenter)
         brand_subtitle.setWordWrap(True)
         brand_layout.addWidget(brand_title)
+        brand_layout.addWidget(brand_subtitle)
+        sidebar_layout.addWidget(brand_card)
+
+        nav_specs = [
+            ("启动", "▶"),
+            ("目录", "▣"),
+            ("模型", "◇"),
+            ("日志", "≡"),
+            ("设置", "⚙"),
+        ]
+        nav_wrap = QVBoxLayout()
+        nav_wrap.setSpacing(12)
+        for index, (label, glyph) in enumerate(nav_specs):
+            button = NavButton(label, glyph)
+            button.clicked.connect(lambda checked=False, i=index: self.switch_page(i))
+            self.nav_buttons.append(button)
+            nav_wrap.addWidget(button)
+        sidebar_layout.addLayout(nav_wrap)
+        sidebar_layout.addStretch(1)
         brand_layout.addWidget(brand_subtitle)
         sidebar_layout.addWidget(brand_card)
 
@@ -298,13 +317,13 @@ class LauncherWindow(QMainWindow):
         shell.addWidget(sidebar, 0)
 
         workspace = QVBoxLayout()
-        workspace.setSpacing(10)
+        workspace.setSpacing(16)
         shell.addLayout(workspace, 1)
 
         hero = Card()
         hero.setObjectName("HeroCard")
         hero_top = QHBoxLayout()
-        hero_top.setSpacing(14)
+        hero_top.setSpacing(16)
 
         hero_badge = QLabel("文乃")
         hero_badge.setObjectName("HeroBadge")
@@ -335,7 +354,7 @@ class LauncherWindow(QMainWindow):
 
         control_card = Card("启动服务", "先设置素材和输出目录。服务启动后可在浏览器中打开工作台。")
         control_form = QVBoxLayout()
-        control_form.setSpacing(12)
+        control_form.setSpacing(16)
 
         source_row = QHBoxLayout()
         source_row.addWidget(QLabel("素材目录"))
@@ -420,8 +439,8 @@ class LauncherWindow(QMainWindow):
             mini = QFrame()
             mini.setObjectName("MiniCard")
             mini_layout = QVBoxLayout(mini)
-            mini_layout.setContentsMargins(14, 14, 14, 14)
-            mini_layout.setSpacing(4)
+            mini_layout.setContentsMargins(18, 18, 18, 18)
+            mini_layout.setSpacing(8)
             title = QLabel(item.name)
             title.setObjectName("MiniTitle")
             meta = QLabel(f"{item.kind} | {item.status}")
@@ -448,10 +467,10 @@ class LauncherWindow(QMainWindow):
 
         paths_page = QWidget()
         paths_layout = QVBoxLayout(paths_page)
-        paths_layout.setSpacing(12)
+        paths_layout.setSpacing(16)
         path_summary = Card("目录与输出", "这里单独管理素材目录、输出目录以及网页工作台入口。")
         path_content = QVBoxLayout()
-        path_content.setSpacing(12)
+        path_content.setSpacing(16)
         path_content.addWidget(QLabel("素材目录"))
         self.paths_source_edit = QLineEdit(self.config.source_root)
         self.paths_source_edit.textChanged.connect(self.source_edit.setText)
@@ -560,72 +579,72 @@ class LauncherWindow(QMainWindow):
             QWidget { background: #edf8f6; color: #12363a; font-size: 14px; font-family: "Microsoft YaHei UI", "Noto Sans SC", sans-serif; }
             QMainWindow { background: #e6f5f2; }
             QLabel { background: transparent; border: 0; }
-            QFrame#Sidebar { background: rgba(255,255,255,0.78); border: 1px solid #c7e4df; border-radius: 26px; min-width: 96px; max-width: 96px; }
+            QFrame#Sidebar { background: rgba(255,255,255,0.78); border: 1px solid #c7e4df; border-radius: 26px; min-width: 110px; max-width: 110px; }
             QFrame#BrandCard { background: transparent; border: 0; }
-            QLabel#BrandMark { min-width: 48px; min-height: 48px; max-width: 48px; max-height: 48px; border-radius: 16px; background: qlineargradient(x1:0,y1:0,x2:1,y2:1, stop:0 #17b6ad, stop:1 #28c66f); color: white; font: 800 20px "Segoe UI"; qproperty-alignment: AlignCenter; }
-            QLabel#BrandTitle { color: #174048; font: 700 15px "Microsoft YaHei UI"; }
-            QLabel#BrandSubtitle { color: #5b7d82; font-size: 12px; }
-            QToolButton#NavButton { background: rgba(255,255,255,0.72); border: 1px solid #d7efeb; border-radius: 18px; padding: 10px 6px; color: #2b5255; font: 700 12px "Microsoft YaHei UI"; }
+            QLabel#BrandMark { min-width: 52px; min-height: 52px; max-width: 52px; max-height: 52px; border-radius: 18px; background: qlineargradient(x1:0,y1:0,x2:1,y2:1, stop:0 #17b6ad, stop:1 #28c66f); color: white; font: 800 22px "Segoe UI"; qproperty-alignment: AlignCenter; }
+            QLabel#BrandTitle { color: #174048; font: 700 16px "Microsoft YaHei UI"; margin-top: 4px; }
+            QLabel#BrandSubtitle { color: #5b7d82; font-size: 13px; margin-top: 2px; }
+            QToolButton#NavButton { background: rgba(255,255,255,0.72); border: 1px solid #d7efeb; border-radius: 20px; padding: 14px 8px; color: #2b5255; font: 700 13px "Microsoft YaHei UI"; min-height: 24px; }
             QToolButton#NavButton:checked { background: qlineargradient(x1:0,y1:0,x2:1,y2:1, stop:0 #dff7f3, stop:1 #effaf7); border: 1px solid #7ed2c8; color: #0d6763; }
-            QPushButton#ThemeButton { background: #ffffff; border: 1px solid #d6ebe6; border-radius: 16px; padding: 12px 10px; color: #1c5456; font: 700 13px "Microsoft YaHei UI"; }
-            QFrame#Card, QFrame#HeroCard { background: rgba(255,255,255,0.85); border: 1px solid #d3ebe5; border-radius: 24px; }
-            QFrame#HeroCard { min-height: 158px; }
-            QLabel#CardTitle { color: #163d45; font: 700 20px "Microsoft YaHei UI"; }
-            QLabel#CardSubtitle, QLabel#BodyText, QLabel#MiniMeta { color: #67858a; }
-            QLabel#HeroBadge { color: #0d9f99; font: 700 12px "Microsoft YaHei UI"; }
-            QLabel#HeroTitle { color: #153842; font: 700 38px "Microsoft YaHei UI"; }
-            QLabel#HeroSubtitle { color: #5e7b80; font-size: 15px; }
-            QLabel#StateBadge { background: #f4fbfa; border: 1px solid #cfe6e1; border-radius: 16px; padding: 10px 16px; color: #127f7a; font: 700 13px "Microsoft YaHei UI"; }
-            QLabel#StatusText { color: #244e56; font-size: 15px; }
-            QLabel#SummaryBox { background: #f4fbfa; border: 1px solid #d7ece8; border-radius: 16px; padding: 12px 14px; color: #537378; }
-            QLabel#SectionLabel { color: #163d45; font: 700 16px "Microsoft YaHei UI"; margin-top: 10px; }
-            QFrame#MiniCard { background: #f7fcfb; border: 1px solid #d8ece8; border-radius: 18px; }
-            QLabel#MiniTitle { color: #173f47; font: 700 15px "Microsoft YaHei UI"; }
-            QLabel#MiniNote { color: #58747a; }
-            QLineEdit { background: #ffffff; border: 1px solid #d2e7e3; border-radius: 14px; padding: 11px 12px; color: #173b40; }
+            QPushButton#ThemeButton { background: #ffffff; border: 1px solid #d6ebe6; border-radius: 18px; padding: 14px 12px; color: #1c5456; font: 700 13px "Microsoft YaHei UI"; }
+            QFrame#Card, QFrame#HeroCard { background: rgba(255,255,255,0.85); border: 1px solid #d3ebe5; border-radius: 24px; padding: 20px; }
+            QFrame#HeroCard { min-height: 180px; padding: 24px; }
+            QLabel#CardTitle { color: #163d45; font: 700 22px "Microsoft YaHei UI"; margin-bottom: 8px; }
+            QLabel#CardSubtitle, QLabel#BodyText, QLabel#MiniMeta { color: #67858a; line-height: 1.6; }
+            QLabel#HeroBadge { color: #0d9f99; font: 700 13px "Microsoft YaHei UI"; }
+            QLabel#HeroTitle { color: #153842; font: 700 40px "Microsoft YaHei UI"; margin-bottom: 12px; }
+            QLabel#HeroSubtitle { color: #5e7b80; font-size: 16px; line-height: 1.5; }
+            QLabel#StateBadge { background: #f4fbfa; border: 1px solid #cfe6e1; border-radius: 18px; padding: 12px 18px; color: #127f7a; font: 700 14px "Microsoft YaHei UI"; }
+            QLabel#StatusText { color: #244e56; font-size: 15px; margin: 8px 0; }
+            QLabel#SummaryBox { background: #f4fbfa; border: 1px solid #d7ece8; border-radius: 18px; padding: 16px 18px; color: #537378; margin: 8px 0; }
+            QLabel#SectionLabel { color: #163d45; font: 700 18px "Microsoft YaHei UI"; margin-top: 20px; margin-bottom: 12px; }
+            QFrame#MiniCard { background: #f7fcfb; border: 1px solid #d8ece8; border-radius: 20px; padding: 16px; margin: 8px 0; }
+            QLabel#MiniTitle { color: #173f47; font: 700 16px "Microsoft YaHei UI"; margin-bottom: 6px; }
+            QLabel#MiniNote { color: #58747a; line-height: 1.5; }
+            QLineEdit { background: #ffffff; border: 1px solid #d2e7e3; border-radius: 16px; padding: 13px 16px; color: #173b40; font-size: 14px; }
             QLineEdit:focus { border: 1px solid #13b1a9; }
-            QCheckBox { color: #33565b; spacing: 8px; }
-            QPushButton { background: #ffffff; border: 1px solid #d3e7e2; border-radius: 14px; padding: 11px 14px; color: #24494f; }
+            QCheckBox { color: #33565b; spacing: 10px; padding: 8px 0; }
+            QPushButton { background: #ffffff; border: 1px solid #d3e7e2; border-radius: 16px; padding: 13px 18px; color: #24494f; font-size: 14px; min-height: 20px; }
             QPushButton:hover { background: #f5fbfa; }
-            QPushButton#PrimaryButton { background: qlineargradient(x1:0,y1:0,x2:1,y2:0, stop:0 #17b6ad, stop:1 #45c98e); border: 0; color: white; font: 700 14px "Microsoft YaHei UI"; }
-            QPushButton#AccentButton { background: qlineargradient(x1:0,y1:0,x2:1,y2:0, stop:0 #6ee0d5, stop:1 #9cf0b3); border: 0; color: #114447; font: 700 14px "Microsoft YaHei UI"; }
-            QPlainTextEdit#LogBox { background: #fcffff; border: 1px solid #d6ece7; border-radius: 18px; padding: 12px; color: #1e4b52; selection-background-color: #9fe8de; }
+            QPushButton#PrimaryButton { background: qlineargradient(x1:0,y1:0,x2:1,y2:0, stop:0 #17b6ad, stop:1 #45c98e); border: 0; color: white; font: 700 15px "Microsoft YaHei UI"; padding: 14px 20px; }
+            QPushButton#AccentButton { background: qlineargradient(x1:0,y1:0,x2:1,y2:0, stop:0 #6ee0d5, stop:1 #9cf0b3); border: 0; color: #114447; font: 700 15px "Microsoft YaHei UI"; padding: 14px 20px; }
+            QPlainTextEdit#LogBox { background: #fcffff; border: 1px solid #d6ece7; border-radius: 20px; padding: 16px; color: #1e4b52; selection-background-color: #9fe8de; font-size: 13px; line-height: 1.6; }
             """
         else:
             stylesheet = """
             QWidget { background: #1b1d24; color: #eef2ff; font-size: 14px; font-family: "Microsoft YaHei UI", "Noto Sans SC", sans-serif; }
             QMainWindow { background: #14161c; }
             QLabel { background: transparent; border: 0; }
-            QFrame#Sidebar { background: #262a34; border: 1px solid #303546; border-radius: 26px; min-width: 96px; max-width: 96px; }
+            QFrame#Sidebar { background: #262a34; border: 1px solid #303546; border-radius: 26px; min-width: 110px; max-width: 110px; }
             QFrame#BrandCard { background: transparent; border: 0; }
-            QLabel#BrandMark { min-width: 48px; min-height: 48px; max-width: 48px; max-height: 48px; border-radius: 16px; background: qlineargradient(x1:0,y1:0,x2:1,y2:1, stop:0 #2f80ff, stop:1 #3658d5); color: white; font: 800 20px "Segoe UI"; qproperty-alignment: AlignCenter; }
-            QLabel#BrandTitle { color: #f4f7ff; font: 700 15px "Microsoft YaHei UI"; }
-            QLabel#BrandSubtitle { color: #96a3c5; font-size: 12px; }
-            QToolButton#NavButton { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.04); border-radius: 18px; padding: 10px 6px; color: #e8ecff; font: 700 12px "Microsoft YaHei UI"; }
+            QLabel#BrandMark { min-width: 52px; min-height: 52px; max-width: 52px; max-height: 52px; border-radius: 18px; background: qlineargradient(x1:0,y1:0,x2:1,y2:1, stop:0 #2f80ff, stop:1 #3658d5); color: white; font: 800 22px "Segoe UI"; qproperty-alignment: AlignCenter; }
+            QLabel#BrandTitle { color: #f4f7ff; font: 700 16px "Microsoft YaHei UI"; margin-top: 4px; }
+            QLabel#BrandSubtitle { color: #96a3c5; font-size: 13px; margin-top: 2px; }
+            QToolButton#NavButton { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.04); border-radius: 20px; padding: 14px 8px; color: #e8ecff; font: 700 13px "Microsoft YaHei UI"; min-height: 24px; }
             QToolButton#NavButton:checked { background: rgba(49, 94, 210, 0.22); border: 1px solid rgba(78, 124, 255, 0.65); color: #ffffff; }
-            QPushButton#ThemeButton { background: #2f3443; border: 1px solid #3d465d; border-radius: 16px; padding: 12px 10px; color: #f0f4ff; font: 700 13px "Microsoft YaHei UI"; }
-            QFrame#Card, QFrame#HeroCard { background: #252934; border: 1px solid #34394a; border-radius: 24px; }
-            QFrame#HeroCard { min-height: 158px; }
-            QLabel#CardTitle { color: #ffffff; font: 700 20px "Microsoft YaHei UI"; }
-            QLabel#CardSubtitle, QLabel#BodyText, QLabel#MiniMeta { color: #9ca7c0; }
-            QLabel#HeroBadge { color: #5ba6ff; font: 700 12px "Microsoft YaHei UI"; }
-            QLabel#HeroTitle { color: #ffffff; font: 700 38px "Microsoft YaHei UI"; }
-            QLabel#HeroSubtitle { color: #aab3c9; font-size: 15px; }
-            QLabel#StateBadge { background: #2c3140; border: 1px solid #3b4359; border-radius: 16px; padding: 10px 16px; color: #6bb1ff; font: 700 13px "Microsoft YaHei UI"; }
-            QLabel#StatusText { color: #dfe6ff; font-size: 15px; }
-            QLabel#SummaryBox { background: #1b1f28; border: 1px solid #32384b; border-radius: 16px; padding: 12px 14px; color: #b8c2dc; }
-            QLabel#SectionLabel { color: #ffffff; font: 700 16px "Microsoft YaHei UI"; margin-top: 10px; }
-            QFrame#MiniCard { background: #2a2f3b; border: 1px solid #363d4e; border-radius: 18px; }
-            QLabel#MiniTitle { color: #ffffff; font: 700 15px "Microsoft YaHei UI"; }
-            QLabel#MiniNote { color: #c6d0ea; }
-            QLineEdit { background: #1b1f28; border: 1px solid #363c4f; border-radius: 14px; padding: 11px 12px; color: #f0f4ff; }
+            QPushButton#ThemeButton { background: #2f3443; border: 1px solid #3d465d; border-radius: 18px; padding: 14px 12px; color: #f0f4ff; font: 700 13px "Microsoft YaHei UI"; }
+            QFrame#Card, QFrame#HeroCard { background: #252934; border: 1px solid #34394a; border-radius: 24px; padding: 20px; }
+            QFrame#HeroCard { min-height: 180px; padding: 24px; }
+            QLabel#CardTitle { color: #ffffff; font: 700 22px "Microsoft YaHei UI"; margin-bottom: 8px; }
+            QLabel#CardSubtitle, QLabel#BodyText, QLabel#MiniMeta { color: #9ca7c0; line-height: 1.6; }
+            QLabel#HeroBadge { color: #5ba6ff; font: 700 13px "Microsoft YaHei UI"; }
+            QLabel#HeroTitle { color: #ffffff; font: 700 40px "Microsoft YaHei UI"; margin-bottom: 12px; }
+            QLabel#HeroSubtitle { color: #aab3c9; font-size: 16px; line-height: 1.5; }
+            QLabel#StateBadge { background: #2c3140; border: 1px solid #3b4359; border-radius: 18px; padding: 12px 18px; color: #6bb1ff; font: 700 14px "Microsoft YaHei UI"; }
+            QLabel#StatusText { color: #dfe6ff; font-size: 15px; margin: 8px 0; }
+            QLabel#SummaryBox { background: #1b1f28; border: 1px solid #32384b; border-radius: 18px; padding: 16px 18px; color: #b8c2dc; margin: 8px 0; }
+            QLabel#SectionLabel { color: #ffffff; font: 700 18px "Microsoft YaHei UI"; margin-top: 20px; margin-bottom: 12px; }
+            QFrame#MiniCard { background: #2a2f3b; border: 1px solid #363d4e; border-radius: 20px; padding: 16px; margin: 8px 0; }
+            QLabel#MiniTitle { color: #ffffff; font: 700 16px "Microsoft YaHei UI"; margin-bottom: 6px; }
+            QLabel#MiniNote { color: #c6d0ea; line-height: 1.5; }
+            QLineEdit { background: #1b1f28; border: 1px solid #363c4f; border-radius: 16px; padding: 13px 16px; color: #f0f4ff; font-size: 14px; }
             QLineEdit:focus { border: 1px solid #4a7cff; }
-            QCheckBox { color: #dbe4ff; spacing: 8px; }
-            QPushButton { background: #2f3443; border: 1px solid #3d465d; border-radius: 14px; padding: 11px 14px; color: #f0f4ff; }
+            QCheckBox { color: #dbe4ff; spacing: 10px; padding: 8px 0; }
+            QPushButton { background: #2f3443; border: 1px solid #3d465d; border-radius: 16px; padding: 13px 18px; color: #f0f4ff; font-size: 14px; min-height: 20px; }
             QPushButton:hover { background: #394157; }
-            QPushButton#PrimaryButton { background: qlineargradient(x1:0,y1:0,x2:1,y2:0, stop:0 #ff7b1a, stop:1 #ff8f2f); border: 0; color: white; font: 700 14px "Microsoft YaHei UI"; }
-            QPushButton#AccentButton { background: qlineargradient(x1:0,y1:0,x2:1,y2:0, stop:0 #3479ff, stop:1 #4c90ff); border: 0; color: white; font: 700 14px "Microsoft YaHei UI"; }
-            QPlainTextEdit#LogBox { background: #15181f; border: 1px solid #31384b; border-radius: 18px; padding: 12px; color: #d9e7ff; selection-background-color: #315ed2; }
+            QPushButton#PrimaryButton { background: qlineargradient(x1:0,y1:0,x2:1,y2:0, stop:0 #ff7b1a, stop:1 #ff8f2f); border: 0; color: white; font: 700 15px "Microsoft YaHei UI"; padding: 14px 20px; }
+            QPushButton#AccentButton { background: qlineargradient(x1:0,y1:0,x2:1,y2:0, stop:0 #3479ff, stop:1 #4c90ff); border: 0; color: white; font: 700 15px "Microsoft YaHei UI"; padding: 14px 20px; }
+            QPlainTextEdit#LogBox { background: #15181f; border: 1px solid #31384b; border-radius: 20px; padding: 16px; color: #d9e7ff; selection-background-color: #315ed2; font-size: 13px; line-height: 1.6; }
             """
         self.setStyleSheet(stylesheet)
         if hasattr(self, "theme_button"):
