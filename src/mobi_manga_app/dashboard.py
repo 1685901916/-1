@@ -3,8 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 
 from .job_store import JobStore
-from .models import DashboardData, ExportOption, JobRecord, OutputFormat, PipelineStep, SourceBook, file_size_mb
-from .utils import iter_image_files
+from .models import DashboardData, ExportOption, JobRecord, OutputFormat, PipelineStep, SourceBook
+from .utils import iter_image_files, natural_sort_key, path_size_mb
 
 
 DEFAULT_SOURCE_ROOT = Path.cwd() / ".work" / "sources"
@@ -28,6 +28,15 @@ def _is_image_folder(path: Path) -> bool:
         return True
     except StopIteration:
         return False
+
+
+def _is_leaf_image_folder(path: Path) -> bool:
+    if not _is_image_folder(path):
+        return False
+    for child in path.iterdir():
+        if child.is_dir() and _is_image_folder(child):
+            return False
+    return True
 
 
 def _stage_rank(stage: str) -> int:
@@ -67,12 +76,21 @@ def _job_priority(job: JobRecord) -> tuple[int, int, int, int, int]:
 
 
 def _job_is_visible(item) -> bool:
-    return bool(item.outputs) or Path(item.source_path).exists()
+    if getattr(item, "status", "") in {"queued", "running", "failed"}:
+        return True
+    if bool(getattr(item, "outputs", None)):
+        return True
+    source_path = str(getattr(item, "source_path", "") or "")
+    if not source_path:
+        return False
+    if ";" in source_path:
+        return any(Path(part).exists() for part in source_path.split(";") if part)
+    return Path(source_path).exists()
 
 
 def _stored_jobs(repo_root: Path) -> list[JobRecord]:
     store = JobStore(repo_root / ".work" / "appdata")
-    merged: dict[str, JobRecord] = {}
+    jobs: list[JobRecord] = []
 
     for item in store.list():
         if not _job_is_visible(item):
@@ -100,19 +118,19 @@ def _stored_jobs(repo_root: Path) -> list[JobRecord]:
             started_at=item.started_at,
             updated_at=item.updated_at,
         )
+        jobs.append(current)
 
-        previous = merged.get(source_name)
-        if previous is None or _job_priority(current) > _job_priority(previous):
-            merged[source_name] = current
-
-    return sorted(merged.values(), key=lambda job: (_stage_rank(job.stage), job.updated_at or ""), reverse=True)
+    return sorted(jobs, key=_job_priority, reverse=True)
 
 
 def _source_books(source_root: Path, jobs: list[JobRecord]) -> list[SourceBook]:
     if not source_root.exists():
         return []
 
-    latest_by_source = {job.source_name: job for job in jobs}
+    latest_by_source: dict[str, JobRecord] = {}
+    for job in jobs:
+        if job.source_name not in latest_by_source:
+            latest_by_source[job.source_name] = job
     books: list[SourceBook] = []
     seen: set[str] = set()
 
@@ -125,7 +143,8 @@ def _source_books(source_root: Path, jobs: list[JobRecord]) -> list[SourceBook]:
             name=name,
             path=str(path),
             format=format_name,
-            size_mb=file_size_mb(path),
+            size_mb=round(path_size_mb(path), 2),
+            can_split=format_name != "folder",
             has_pages=has_pages,
             has_pages_ai=has_pages_ai,
             latest_job_id=job.id if job else None,
@@ -133,11 +152,11 @@ def _source_books(source_root: Path, jobs: list[JobRecord]) -> list[SourceBook]:
             latest_status=job.status if job else None,
         )
 
-    if _is_image_folder(source_root):
+    if _is_leaf_image_folder(source_root):
         books.append(build_source_book(source_root, name=source_root.name, format_name="folder"))
         seen.add(str(source_root.resolve()))
 
-    for path in sorted(source_root.rglob("*")):
+    for path in sorted(source_root.rglob("*"), key=lambda item: natural_sort_key(str(item.relative_to(source_root)))):
         resolved = str(path.resolve())
         if resolved in seen:
             continue
@@ -153,7 +172,7 @@ def _source_books(source_root: Path, jobs: list[JobRecord]) -> list[SourceBook]:
             seen.add(resolved)
             continue
 
-        if _is_image_folder(path):
+        if _is_leaf_image_folder(path):
             books.append(
                 build_source_book(
                     path,
@@ -163,7 +182,7 @@ def _source_books(source_root: Path, jobs: list[JobRecord]) -> list[SourceBook]:
             )
             seen.add(resolved)
 
-    return books
+    return sorted(books, key=lambda item: natural_sort_key(item.name))
 
 
 def build_dashboard_data(

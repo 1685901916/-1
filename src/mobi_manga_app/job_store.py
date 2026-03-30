@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 import re
+import threading
+import time
 import uuid
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
@@ -52,64 +54,71 @@ class JobStore:
         self.root = root
         self.root.mkdir(parents=True, exist_ok=True)
         self.file = self.root / "jobs.json"
+        self._lock = threading.RLock()
 
     def load(self) -> list[StoredJob]:
-        if not self.file.exists():
-            return []
+        with self._lock:
+            if not self.file.exists():
+                return []
 
-        import time
+            payload = []
+            for attempt in range(3):
+                try:
+                    raw = self.file.read_text(encoding="utf-8")
+                    if not raw.strip():
+                        return []
+                    payload = json.loads(raw)
+                    break
+                except json.JSONDecodeError:
+                    if attempt == 2:
+                        return []
+                    time.sleep(0.1)
 
-        payload = []
-        for attempt in range(3):
-            try:
-                raw = self.file.read_text(encoding="utf-8")
-                if not raw.strip():
-                    return []
-                payload = json.loads(raw)
-                break
-            except json.JSONDecodeError:
-                if attempt == 2:
-                    return []
-                time.sleep(0.1)
-
-        jobs: list[StoredJob] = []
-        for item in payload:
-            item.setdefault("source_name", item.get("name", ""))
-            item.setdefault("progress", 0)
-            item.setdefault("progress_label", "waiting")
-            item.setdefault("logs", [])
-            item.setdefault("error_detail", None)
-            item.setdefault("started_at", None)
-            item.setdefault("updated_at", None)
-            item.setdefault("keep_original_pages", True)
-            item.setdefault("keep_enhanced_pages", True)
-            item.setdefault("strategy", "quality_auto")
-            item.setdefault("enhancer", "")
-            item.setdefault("enhance_scale", 1.5)
-            item.setdefault("waifu2x_noise", 1)
-            item.setdefault("waifu2x_tta", False)
-            item.setdefault("waifu2x_model", "models-cunet")
-            item.setdefault("pdf_quality_mode", "fast_auto")
-            item.setdefault("enhancement_profile_counts", {})
-            item.setdefault("page_enhancements", [])
-            item.setdefault("model_availability", {})
-            jobs.append(StoredJob(**item))
-        return jobs
+            jobs: list[StoredJob] = []
+            for item in payload:
+                item.setdefault("source_name", item.get("name", ""))
+                item.setdefault("progress", 0)
+                item.setdefault("progress_label", "waiting")
+                item.setdefault("logs", [])
+                item.setdefault("error_detail", None)
+                item.setdefault("started_at", None)
+                item.setdefault("updated_at", None)
+                item.setdefault("keep_original_pages", True)
+                item.setdefault("keep_enhanced_pages", True)
+                item.setdefault("strategy", "quality_auto")
+                item.setdefault("enhancer", "")
+                item.setdefault("enhance_scale", 1.5)
+                item.setdefault("waifu2x_noise", 1)
+                item.setdefault("waifu2x_tta", False)
+                item.setdefault("waifu2x_model", "models-cunet")
+                item.setdefault("pdf_quality_mode", "fast_auto")
+                item.setdefault("enhancement_profile_counts", {})
+                item.setdefault("page_enhancements", [])
+                item.setdefault("model_availability", {})
+                jobs.append(StoredJob(**item))
+            return jobs
 
     def save(self, jobs: list[StoredJob]) -> None:
-        temp_file = self.root / f"jobs_temp_{uuid.uuid4().hex}.json"
-        try:
-            temp_file.write_text(
-                json.dumps([asdict(item) for item in jobs], ensure_ascii=False, indent=2),
-                encoding="utf-8",
-            )
-            temp_file.replace(self.file)
-        finally:
-            if temp_file.exists():
+        with self._lock:
+            payload = json.dumps([asdict(item) for item in jobs], ensure_ascii=False, indent=2)
+            last_error: Exception | None = None
+            for attempt in range(5):
+                temp_file = self.root / f"jobs_temp_{uuid.uuid4().hex}.json"
                 try:
-                    temp_file.unlink()
-                except Exception:
-                    pass
+                    temp_file.write_text(payload, encoding="utf-8")
+                    temp_file.replace(self.file)
+                    return
+                except PermissionError as exc:
+                    last_error = exc
+                    time.sleep(0.08 * (attempt + 1))
+                finally:
+                    if temp_file.exists():
+                        try:
+                            temp_file.unlink()
+                        except Exception:
+                            pass
+            if last_error is not None:
+                raise last_error
 
     def list(self) -> list[StoredJob]:
         return self.load()
@@ -121,25 +130,27 @@ class JobStore:
         return None
 
     def upsert(self, job: StoredJob) -> StoredJob:
-        jobs = self.load()
-        updated = False
-        for index, current in enumerate(jobs):
-            if current.id == job.id:
-                jobs[index] = job
-                updated = True
-                break
-        if not updated:
-            jobs.append(job)
-        self.save(jobs)
-        return job
+        with self._lock:
+            jobs = self.load()
+            updated = False
+            for index, current in enumerate(jobs):
+                if current.id == job.id:
+                    jobs[index] = job
+                    updated = True
+                    break
+            if not updated:
+                jobs.append(job)
+            self.save(jobs)
+            return job
 
     def delete(self, job_id: str) -> bool:
-        jobs = self.load()
-        filtered = [job for job in jobs if job.id != job_id]
-        if len(filtered) == len(jobs):
-            return False
-        self.save(filtered)
-        return True
+        with self._lock:
+            jobs = self.load()
+            filtered = [job for job in jobs if job.id != job_id]
+            if len(filtered) == len(jobs):
+                return False
+            self.save(filtered)
+            return True
 
     def create(
         self,

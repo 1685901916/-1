@@ -124,7 +124,12 @@ def analyze_page(path: Path) -> PageMetrics:
     with Image.open(path) as pil_image:
         width, height = pil_image.size
 
-    image = cv2.imdecode(np.fromfile(path, dtype=np.uint8), cv2.IMREAD_UNCHANGED)
+    if path.suffix.lower() == ".gif":
+        with Image.open(path) as gif_image:
+            frame = gif_image.convert("RGB")
+            image = cv2.cvtColor(np.array(frame), cv2.COLOR_RGB2BGR)
+    else:
+        image = cv2.imdecode(np.fromfile(path, dtype=np.uint8), cv2.IMREAD_UNCHANGED)
     if image is None:
         raise RuntimeError(f"Failed to read image: {path}")
 

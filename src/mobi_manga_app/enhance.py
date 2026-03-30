@@ -1,6 +1,7 @@
 from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Callable
 
 import cv2
 import numpy as np
@@ -44,8 +45,15 @@ def enhance_pages(
     *,
     strategy: str = "quality_auto",
     analysis: dict[str, object] | None = None,
+    output_format: str | None = None,
+    quality_mode: str = "fast_auto",
+    progress_callback: Callable[[int, int, str], None] | None = None,
 ) -> EnhanceRunResult:
     reset_dir(enhanced_dir)
+    paths = list(iter_image_files(pages_dir))
+    total_count = len(paths)
+    if total_count == 0:
+        raise RuntimeError("No page images found for enhancement.")
     count = 0
     skipped = 0
     warnings: list[str] = []
@@ -65,9 +73,10 @@ def enhance_pages(
 
     analysis_map = _analysis_lookup(analysis)
 
-    for path in iter_image_files(pages_dir):
+    for path in paths:
         total += 1
-        target = enhanced_dir / path.name
+        target_name = path.name if not output_format else f"{path.stem}.{_normalize_output_suffix(output_format)}"
+        target = enhanced_dir / target_name
         page_metrics = analysis_map.get(path.name) or _analysis_entry(analyze_page(path))
         page_profile = str(page_metrics.get("page_profile") or "lineart_bw")
         profile_counts[page_profile] = profile_counts.get(page_profile, 0) + 1
@@ -119,21 +128,19 @@ def enhance_pages(
             if output is None:
                 raise RuntimeError(failure_reason or "all enhancement attempts failed")
 
-            _write_image(target, output, was_gray)
+            _write_image(target, output, was_gray, quality_mode=quality_mode)
             count += 1
         except Exception as exc:
             detail = f"{path.name}: {exc}"
             warnings.append(detail)
             record["fallback"] = True
             record["fallback_reason"] = str(exc)
-            target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_bytes(path.read_bytes())
+            _write_passthrough_image(path, target, quality_mode=quality_mode)
             skipped += 1
 
         page_results.append(record)
-
-    if total == 0:
-        raise RuntimeError("No page images found for enhancement.")
+        if progress_callback:
+            progress_callback(total_count, count + skipped, path.name)
     if count == 0 and skipped == 0:
         raise RuntimeError("Enhancement failed: no page could be processed.\n" + "\n".join(warnings[:8]))
     return EnhanceRunResult(
@@ -195,7 +202,23 @@ def _read_image(input_path: Path) -> tuple[np.ndarray, bool]:
     return image, was_gray
 
 
-def _write_image(output_path: Path, image: np.ndarray, was_gray: bool) -> None:
+def _normalize_output_suffix(value: str) -> str:
+    suffix = value.lower().lstrip(".")
+    return "jpeg" if suffix == "jpg" else suffix
+
+
+def _encode_params(suffix: str, quality_mode: str) -> list[int]:
+    mode = (quality_mode or "fast_auto").lower()
+    if suffix in {".jpg", ".jpeg"}:
+        quality = 82 if mode == "fast_auto" else 90 if mode == "quality_auto" else 95
+        return [cv2.IMWRITE_JPEG_QUALITY, quality]
+    if suffix == ".webp":
+        quality = 80 if mode == "fast_auto" else 88 if mode == "quality_auto" else 95
+        return [cv2.IMWRITE_WEBP_QUALITY, quality]
+    return []
+
+
+def _write_image(output_path: Path, image: np.ndarray, was_gray: bool, *, quality_mode: str = "fast_auto") -> None:
     final = image
     if was_gray and final.ndim == 3:
         final = cv2.cvtColor(final, cv2.COLOR_BGR2GRAY)
@@ -204,10 +227,16 @@ def _write_image(output_path: Path, image: np.ndarray, was_gray: bool) -> None:
     if suffix == ".gif":
         output_path = output_path.with_suffix(".png")
         suffix = ".png"
-    ok, encoded = cv2.imencode(suffix, final)
+    params = _encode_params(suffix, quality_mode)
+    ok, encoded = cv2.imencode(suffix, final, params)
     if not ok:
         raise RuntimeError(f"Failed to encode image: {output_path}")
     encoded.tofile(output_path)
+
+
+def _write_passthrough_image(input_path: Path, output_path: Path, *, quality_mode: str = "fast_auto") -> None:
+    image, was_gray = _read_image(input_path)
+    _write_image(output_path, image, was_gray, quality_mode=quality_mode)
 
 
 def _run_enhancer(image: np.ndarray, options: EnhanceOptions, enhancer_name: str | None) -> np.ndarray:
@@ -302,14 +331,6 @@ def _build_attempts(
             for item in attempts
         ]
 
-    if compat:
-        attempts.append(
-            EnhanceAttempt(
-                "opencv",
-                EnhanceOptions(mode="conservative", scale=scale, noise=0, tta=False, model=base_options.model),
-                "legacy compatibility fallback",
-            )
-        )
     return attempts
 
 

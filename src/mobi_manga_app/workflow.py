@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 import shutil
 from pathlib import Path
 
@@ -14,8 +15,27 @@ from .unpack import PdfUnpackOptions, unpack_and_collect
 from .utils import iter_image_files
 
 
+def _next_available_output_root(output_dir: Path, source_stem: str) -> Path:
+    candidate = output_dir / source_stem
+    suffix = 1
+    while candidate.exists():
+        candidate = output_dir / f"{source_stem}({suffix})"
+        suffix += 1
+    return candidate
+
+
+def _is_concrete_output_root(path: Path, source_stem: str) -> bool:
+    return bool(re.fullmatch(rf"{re.escape(source_stem)}(?:\(\d+\))?", path.name))
+
+
 def _book_output_root(job: StoredJob) -> Path:
-    return Path(job.output_dir) / Path(job.source_name).stem / job.id
+    source_stem = Path(job.source_name).stem or Path(job.name).stem or "job"
+    output_dir = Path(job.output_dir)
+    if _is_concrete_output_root(output_dir, source_stem):
+        return output_dir
+    resolved_root = _next_available_output_root(output_dir, source_stem)
+    job.output_dir = str(resolved_root)
+    return resolved_root
 
 
 def _copy_tree(source: Path, target: Path) -> None:
@@ -288,6 +308,8 @@ def run_enhance_only(job: StoredJob) -> StoredJob:
         enhancer_name=enhancer_name,
         strategy=job.strategy or "quality_auto",
         analysis=analysis,
+        output_format=job.pdf_image_format or "jpg",
+        quality_mode=job.pdf_quality_mode or "fast_auto",
     )
 
     output_root.mkdir(parents=True, exist_ok=True)
@@ -302,16 +324,20 @@ def run_enhance_only(job: StoredJob) -> StoredJob:
     job.enhancement_profile_counts = enhance_result.profile_counts
     job.page_enhancements = enhance_result.page_results
     job.model_availability = enhance_result.model_availability
+    fallback_only = bool(enhance_result.total_count) and enhance_result.success_count == 0 and enhance_result.skipped_count == enhance_result.total_count
     job.notes = [
         f"pages_ai success: {enhance_result.success_count}/{enhance_result.total_count}",
         f"pages_ai fallback: {enhance_result.skipped_count}",
         f"strategy: {job.strategy or 'quality_auto'}",
         f"pdf_quality_mode: {job.pdf_quality_mode}",
         f"output_dir: {output_root}",
-        "enhancement complete",
+        "enhancement complete" if not fallback_only else "enhancement fallback only",
     ]
     if enhance_result.warnings:
         job.logs.extend(f"[enhance-warning] {item}" for item in enhance_result.warnings[:20])
+    if fallback_only:
+        job.logs.append("[enhance-warning] all pages fell back to the original images")
+        job.progress_label = "Enhancement complete (fallback only)"
     job.status = "ready"
     return job
 

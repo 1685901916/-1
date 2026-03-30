@@ -14,6 +14,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import fitz
+import numpy as np
+from PIL import Image
 
 from .tools import CommandSpec
 from .utils import iter_image_files, reset_dir
@@ -44,6 +46,15 @@ class PdfPageDecision:
     embedded_width: int
     embedded_height: int
     has_vector_content: bool
+
+
+def _pdf_save_profile(options: PdfUnpackOptions) -> tuple[int, int | None]:
+    quality_mode = (options.quality_mode or "fast_auto").lower()
+    if quality_mode == "lossless":
+        return 100, 6
+    if quality_mode == "quality_auto":
+        return 93, 5
+    return 84, 4
 
 def _ordered_unique(items: list[Path]) -> list[Path]:
     seen: set[Path] = set()
@@ -269,8 +280,8 @@ def _decide_pdf_page_mode(
         reason = "embedded_image_good_enough"
         source_mode = "extract"
 
-    extension = (picked[1] if picked is not None else options.image_format or "png").lower()
-    output_name = f"page_{page_index:04d}.{extension if source_mode == 'extract' else (options.image_format or 'png').lower()}"
+    extension = (options.image_format or "png").lower()
+    output_name = f"page_{page_index:04d}.{extension}"
     return PdfPageDecision(
         page_index=page_index,
         output_name=output_name,
@@ -287,12 +298,34 @@ def _render_pdf_page(page: fitz.Page, output_dir: Path, index: int, options: Pdf
     zoom = dpi / 72.0
     pix = page.get_pixmap(matrix=fitz.Matrix(zoom, zoom), alpha=False)
     image_format = (options.image_format or "png").lower()
+    jpeg_quality, webp_method = _pdf_save_profile(options)
     if image_format == "jpg":
         target = output_dir / f"page_{index:04d}.jpg"
-        pix.save(target, "jpeg", jpg_quality=98)
+        pix.save(target, "jpeg", jpg_quality=jpeg_quality)
+        return
+    if image_format == "webp":
+        target = output_dir / f"page_{index:04d}.webp"
+        rgb = np.frombuffer(pix.samples, dtype=np.uint8).reshape(pix.height, pix.width, pix.n)[:, :, :3]
+        Image.fromarray(rgb).save(target, format="WEBP", quality=jpeg_quality, method=webp_method)
         return
     target = output_dir / f"page_{index:04d}.png"
     pix.save(target)
+
+
+def _write_extracted_pdf_image(image_bytes: bytes, output_dir: Path, index: int, options: PdfUnpackOptions) -> None:
+    image_format = (options.image_format or "png").lower()
+    jpeg_quality, webp_method = _pdf_save_profile(options)
+    suffix = "jpg" if image_format == "jpg" else image_format
+    target = output_dir / f"page_{index:04d}.{suffix}"
+    with Image.open(io.BytesIO(image_bytes)) as image:
+        frame = image.convert("RGB")
+        if image_format == "jpg":
+            frame.save(target, format="JPEG", quality=jpeg_quality, optimize=jpeg_quality < 100)
+            return
+        if image_format == "webp":
+            frame.save(target, format="WEBP", quality=jpeg_quality, method=webp_method)
+            return
+        frame.save(target, format="PNG")
 
 
 def unpack_pdf(input_path: Path, output_dir: Path, options: PdfUnpackOptions | None = None) -> Path:
@@ -309,10 +342,8 @@ def unpack_pdf(input_path: Path, output_dir: Path, options: PdfUnpackOptions | N
             decisions.append(decision)
             extracted = _pick_pdf_image(document, image_list) if decision.source_mode == "extract" else None
             if decision.source_mode == "extract" and extracted is not None:
-                image_bytes, image_ext = extracted
-                target = output_dir / f"page_{index:04d}.{image_ext}"
-                with open(target, "wb") as f:
-                    f.write(image_bytes)
+                image_bytes, _image_ext = extracted
+                _write_extracted_pdf_image(image_bytes, output_dir, index, options)
                 continue
             _render_pdf_page(page, output_dir, index, options)
     finally:

@@ -1222,6 +1222,24 @@ svg {
   gap: 18px;
 }
 
+.task-warning-card {
+  padding: 16px 18px;
+  border: 1px solid #f7d7bf;
+  border-radius: 22px;
+  background: linear-gradient(180deg, #fff7f0 0%, #fffaf6 100%);
+  color: #9a4a18;
+}
+
+.task-warning-card h3 {
+  margin: 0 0 10px;
+  font-size: 18px;
+}
+
+.task-warning-card p {
+  margin: 8px 0 0;
+  line-height: 1.6;
+}
+
 .detail-progress-card {
   border: 1px solid #dcefed;
   border-radius: 24px;

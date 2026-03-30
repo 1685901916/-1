@@ -6,8 +6,10 @@ import hashlib
 import json
 import mimetypes
 import os
+import re
 import shutil
 import threading
+import time
 import traceback
 from datetime import datetime
 from http import HTTPStatus
@@ -34,6 +36,10 @@ from .workflow import (
 )
 
 
+_PROGRESS_CACHE_LOCK = threading.Lock()
+_PROGRESS_CACHE: dict[str, dict[str, object]] = {}
+
+
 def _touch(job: StoredJob, **updates: object) -> StoredJob:
     for key, value in updates.items():
         setattr(job, key, value)
@@ -50,6 +56,81 @@ def _append_logs(job: StoredJob, *lines: str) -> StoredJob:
 
 def _format_exception(exc: Exception) -> str:
     return "".join(traceback.format_exception(type(exc), exc, exc.__traceback__))
+
+
+def _sanitize_output_name(value: str, fallback: str = "job") -> str:
+    cleaned = re.sub(r'[<>:"/\\|?*\x00-\x1F]+', "_", str(value or "")).strip().strip(".")
+    return cleaned or fallback
+
+
+def _source_pool_name(source_root: Path) -> str:
+    return _sanitize_output_name(source_root.name or "sources", "sources")
+
+
+def _next_available_output_dir(parent: Path, leaf_name: str, *, reserved_paths: set[str] | None = None) -> Path:
+    reserved = reserved_paths or set()
+    candidate = parent / leaf_name
+    if not candidate.exists() and str(candidate) not in reserved:
+        return candidate
+    suffix = 1
+    while True:
+        named = parent / f"{leaf_name}({suffix})"
+        if not named.exists() and str(named) not in reserved:
+            return named
+        suffix += 1
+
+
+def _stable_book_output_dir(output_root: Path, source_root: Path, source_name: str, *, reserved_paths: set[str] | None = None) -> Path:
+    pool_dir = output_root / _source_pool_name(source_root)
+    leaf_name = _sanitize_output_name(Path(source_name).name, "book")
+    return _next_available_output_dir(pool_dir, leaf_name, reserved_paths=reserved_paths)
+
+
+def _stable_merge_output_dir(output_root: Path, source_root: Path, merge_name: str, *, reserved_paths: set[str] | None = None) -> Path:
+    pool_dir = output_root / _source_pool_name(source_root)
+    leaf_name = _sanitize_output_name(merge_name, "merge")
+    return _next_available_output_dir(pool_dir, leaf_name, reserved_paths=reserved_paths)
+
+
+def _should_persist_progress(job_id: str, progress: int, label: str, *, min_interval: float = 0.75) -> bool:
+    now = time.monotonic()
+    with _PROGRESS_CACHE_LOCK:
+        previous = _PROGRESS_CACHE.get(job_id)
+        if previous is None:
+            _PROGRESS_CACHE[job_id] = {"progress": progress, "label": label, "time": now}
+            return True
+        if previous["label"] != label or previous["progress"] != progress or now - float(previous["time"]) >= min_interval:
+            _PROGRESS_CACHE[job_id] = {"progress": progress, "label": label, "time": now}
+            return True
+        return False
+
+
+def _persist_progress(store: JobStore, current: StoredJob, *, progress: int, stage: str, label: str) -> None:
+    if not _should_persist_progress(current.id, progress, label):
+        return
+    try:
+        store.upsert(
+            _touch(
+                (store.get(current.id) or current),
+                status="running",
+                stage=stage,
+                progress=progress,
+                progress_label=label,
+            )
+        )
+    except Exception:
+        return
+
+
+def _classify_failure(detail: str) -> str:
+    message = (detail or "").lower()
+    if "permissionerror" in message and "jobs.json" in message:
+        return "Task state save failed"
+    if "interrupted before completion" in message:
+        return "Interrupted before completion"
+    if "enhance" in message:
+        return "Enhancement failed"
+    return "Execution failed"
 
 
 def _safe_uploaded_name(name: str) -> str:
@@ -129,15 +210,29 @@ def _run_in_background(store: JobStore, job: StoredJob, step: str) -> None:
                     quality_mode=str(current.pdf_quality_mode or "fast_auto"),
                     keep_original_pages=bool(current.keep_original_pages),
                     keep_enhanced_pages=bool(current.keep_enhanced_pages),
+                    progress_callback=lambda progress, label: _persist_progress(
+                        store,
+                        current,
+                        progress=progress,
+                        stage="export",
+                        label=label,
+                    ),
                 )
+                enhancement = manifest.get("enhancement") or {}
+                total_count = int(enhancement.get("total_count") or 0)
+                success_count = int(enhancement.get("success_count") or 0)
+                skipped_count = int(enhancement.get("skipped_count") or 0)
+                fallback_only = bool(total_count) and success_count == 0 and skipped_count == total_count
                 current.output_dir = str(manifest.get("output_dir") or current.output_dir)
                 current.stage = "export"
                 current.status = "ready"
                 current.progress = 100
-                current.progress_label = "Merge export complete"
+                current.progress_label = "Merge export complete (enhancement fallback only)" if fallback_only else "Merge export complete"
                 current.page_count = int(manifest.get("page_count") or 0)
-                current.outputs = list(manifest.get("output_files") or manifest.get("files") or [])
+                current.outputs = list(manifest.get("files") or manifest.get("output_files") or [])
                 current.logs = [*(current.logs or []), *[str(line) for line in (manifest.get("logs") or [])]]
+                current.enhancement_profile_counts = dict(enhancement.get("profile_counts") or {})
+                current.model_availability = dict(enhancement.get("model_availability") or {})
                 current.notes = [
                     f"merged sources: {current.source_name}",
                     f"output_dir: {current.output_dir}",
@@ -145,6 +240,11 @@ def _run_in_background(store: JobStore, job: StoredJob, step: str) -> None:
                     f"keep_original_pages: {current.keep_original_pages}",
                     f"keep_enhanced_pages: {current.keep_enhanced_pages}",
                 ]
+                if total_count:
+                    current.notes.append(f"enhance success: {success_count}/{total_count}")
+                    current.notes.append(f"enhance fallback: {skipped_count}/{total_count}")
+                if fallback_only:
+                    current.notes.append("warning: export succeeded, but all enhanced pages fell back to the original images")
                 store.upsert(_touch(current))
                 return
 
@@ -165,14 +265,12 @@ def _run_in_background(store: JobStore, job: StoredJob, step: str) -> None:
                 def progress_update(progress: int, stage: str, label: str) -> None:
                     latest = store.get(current.id) or current
                     _append_logs(latest, f"[{stage}] {label} ({progress}%)")
-                    store.upsert(
-                        _touch(
-                            latest,
-                            status="running",
-                            stage=stage,
-                            progress=progress,
-                            progress_label=label,
-                        )
+                    _persist_progress(
+                        store,
+                        latest,
+                        progress=progress,
+                        stage=stage,
+                        label=label,
                     )
 
                 latest = store.get(current.id) or current
@@ -230,12 +328,26 @@ def _run_in_background(store: JobStore, job: StoredJob, step: str) -> None:
                 _touch(
                     current,
                     status="failed",
-                    progress_label="Execution failed",
+                    progress_label=_classify_failure(detail),
                     error_detail=detail,
                 )
             )
 
     threading.Thread(target=worker, daemon=True).start()
+
+
+def _recover_interrupted_jobs(store: JobStore) -> None:
+    for job in store.list():
+        if job.status != "running":
+            continue
+        detail = "Background task was interrupted before completion. Partial outputs may remain on disk."
+        job.status = "failed"
+        job.progress_label = "Interrupted before completion"
+        job.error_detail = detail
+        job.notes = [detail, *(job.notes or [])][:10]
+        job.logs = [*(job.logs or []), "[recovery] marked as failed after API restart"][-300:]
+        job.updated_at = datetime.now().isoformat(timespec="seconds")
+        store.upsert(job)
 
 
 def create_handler(
@@ -249,6 +361,7 @@ def create_handler(
         "default_output_root": str(default_output_root or (repo_root / ".work" / "outputs")),
     }
     store = JobStore(repo_root / ".work" / "appdata")
+    _recover_interrupted_jobs(store)
     frontend_dist = static_root if static_root is not None else (repo_root / "frontend" / "dist")
     preview_root = repo_root / ".work" / "preview_cache"
 
@@ -628,7 +741,14 @@ def create_handler(
                     current_source_root = Path(state["source_root"])
                     source_name = payload.get("source_name")
                     source_path = (current_source_root / source_name) if source_name else Path(payload["source_path"])
-                    output_dir = Path(payload.get("output_dir") or state["default_output_root"])
+                    output_root = Path(payload.get("output_dir") or state["default_output_root"])
+                    reserved_paths = {str(Path(item.output_dir)) for item in store.list() if getattr(item, "output_dir", "")}
+                    output_dir = _stable_book_output_dir(
+                        output_root,
+                        current_source_root,
+                        source_name or source_path.name,
+                        reserved_paths=reserved_paths,
+                    )
                     job = store.create(
                         name=payload.get("name") or source_path.stem,
                         source_name=source_name or source_path.name,
@@ -663,8 +783,15 @@ def create_handler(
                     if missing:
                         self._send_json({"error": "source not found", "missing": missing}, status=HTTPStatus.NOT_FOUND)
                         return
-                    output_dir = Path(payload.get("output_dir") or state["default_output_root"])
+                    output_root = Path(payload.get("output_dir") or state["default_output_root"])
                     merge_name = str(payload.get("merge_name") or _merge_name(source_paths))
+                    reserved_paths = {str(Path(item.output_dir)) for item in store.list() if getattr(item, "output_dir", "")}
+                    output_dir = _stable_merge_output_dir(
+                        output_root,
+                        Path(state["source_root"]),
+                        merge_name,
+                        reserved_paths=reserved_paths,
+                    )
                     job = store.create(
                         name=merge_name,
                         source_name=" + ".join(source_names),

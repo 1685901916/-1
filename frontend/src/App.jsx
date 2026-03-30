@@ -155,6 +155,12 @@ const waifuNoiseOptions = [
   { value: 3, label: "最强" },
 ];
 
+const waifuScaleOptions = [
+  { value: 1.0, label: "1.0x" },
+  { value: 1.5, label: "1.5x" },
+  { value: 2.0, label: "2.0x" },
+];
+
 const readJson = (response) => response.json().catch(() => ({}));
 
 function readStoredValue(key, fallback) {
@@ -207,6 +213,31 @@ function baseName(value) {
   return value.split(/[\\/]/).filter(Boolean).pop() || value;
 }
 
+function summarizeTaskSource(job) {
+  const outputLeaf = baseName(job?.output_dir);
+  if (outputLeaf) return outputLeaf;
+  return job?.source_name || "-";
+}
+
+function summarizeFailure(job) {
+  const detail = String(job?.error_detail || "");
+  const label = String(job?.progress_label || "");
+  if (/jobs\.json/i.test(detail) && /permissionerror|\[winerror 5\]/i.test(detail)) return "任务状态保存失败";
+  if (/interrupted before completion/i.test(label) || /interrupted before completion/i.test(detail)) return "任务被中断";
+  if (/enhance/i.test(detail)) return "画质提升失败";
+  return label || "执行失败";
+}
+
+function isActualWarningLine(line) {
+  const text = String(line || "");
+  if (/warning/i.test(text)) return true;
+  const fallbackMatch = text.match(/fallback:\s*(\d+)\s*\/\s*(\d+)/i);
+  if (fallbackMatch) {
+    return Number(fallbackMatch[1]) > 0;
+  }
+  return false;
+}
+
 function calculateEstimateSize(baseSizeMb, ratio, multiplier) {
   return Number(((baseSizeMb || 0) * ratio * multiplier).toFixed(1));
 }
@@ -216,42 +247,43 @@ function estimateOutputRangeMb(source, outputFormat, options) {
   if (!(baseSize > 0)) return { low: 0, high: 0 };
 
   const outputProfiles = {
-    cbz: { base: 1.0, variance: 0.14 },
-    zip: { base: 0.97, variance: 0.14 },
-    epub: { base: 0.88, variance: 0.18 },
-    mobi: { base: 0.81, variance: 0.2 },
-    pdf: { base: 1.06, variance: 0.22 },
+    cbz: { base: 1.0, variance: 0.18 },
+    zip: { base: 1.02, variance: 0.18 },
+    epub: { base: 0.92, variance: 0.22 },
+    mobi: { base: 0.86, variance: 0.24 },
+    pdf: { base: 1.08, variance: 0.24 },
   };
   const inputFactors = {
     folder: 1.0,
-    cbz: 0.84,
-    zip: 0.84,
-    pdf: 0.7,
-    epub: 0.78,
-    mobi: 0.74,
+    cbz: 0.96,
+    zip: 0.97,
+    pdf: 0.86,
+    epub: 0.9,
+    mobi: 0.88,
   };
-  const imageFactors = {
-    jpg: { fast_auto: 0.78, quality_auto: 0.92, lossless: 1.06 },
-    webp: { fast_auto: 0.68, quality_auto: 0.82, lossless: 0.95 },
-    png: { fast_auto: 1.38, quality_auto: 1.42, lossless: 1.48 },
+  const imageFormatFactors = {
+    jpg: 1.0,
+    webp: 0.84,
+    png: 1.55,
   };
   const enhancerFactors = {
-    waifu2x: 1.12,
-    "realesrgan-anime": 1.2,
-    opencv: 1.04,
+    waifu2x: 1.18,
+    "realesrgan-anime": 1.26,
+    opencv: 1.08,
   };
 
   const profile = outputProfiles[outputFormat] || { base: 0.95, variance: 0.18 };
   const inputFactor = inputFactors[String(source?.format || "").toLowerCase()] || 0.9;
   const imageFormat = String(options?.imageFormat || "jpg").toLowerCase();
-  const qualityMode = String(options?.qualityMode || "quality_auto").toLowerCase();
-  const imageFactor = imageFactors[imageFormat]?.[qualityMode] ?? 0.92;
+  const imageFactor = imageFormatFactors[imageFormat] ?? 1.0;
   const enhancerFactor = enhancerFactors[options?.enhancer] ?? 1.08;
   const deviceFactor = Number(options?.deviceMultiplier || 1);
+  const scaleFactor = Math.max(1, Number(options?.enhanceScale || 1.5));
   const selectedCount = Number(options?.selectedCount || 1);
-  const batchFactor = selectedCount > 1 ? 0.96 : 1;
+  const batchFactor = selectedCount > 1 ? 0.98 : 1;
+  const areaFactor = Math.max(1, scaleFactor * scaleFactor);
 
-  const estimate = baseSize * profile.base * inputFactor * imageFactor * enhancerFactor * deviceFactor * batchFactor;
+  const estimate = baseSize * profile.base * inputFactor * imageFactor * enhancerFactor * deviceFactor * batchFactor * areaFactor;
   const low = Math.max(1, estimate * (1 - profile.variance));
   const high = Math.max(low + 1, estimate * (1 + profile.variance));
   return {
@@ -739,9 +771,10 @@ function EnhanceWorkspace({
   selectedEnhancer,
   onSelectEnhancer,
   selectedImageFormat,
-  selectedPdfQualityMode,
   selectedWaifuNoise,
+  selectedWaifuScale,
   onSelectWaifuNoise,
+  onSelectWaifuScale,
   onSwitchDir,
   onPickOutputPath,
   onRun,
@@ -845,6 +878,19 @@ function EnhanceWorkspace({
                     </button>
                   ))}
                 </div>
+                <strong>waifu2x 鏀惧ぇ鍊嶇巼</strong>
+                <div className="format-pills">
+                  {waifuScaleOptions.map((item) => (
+                    <button
+                      key={item.value}
+                      type="button"
+                      className={`pill-btn ${selectedWaifuScale === item.value ? "is-active" : ""}`}
+                      onClick={() => onSelectWaifuScale(item.value)}
+                    >
+                      {item.label}
+                    </button>
+                  ))}
+                </div>
               </div>
             ) : null}
           </section>
@@ -864,7 +910,7 @@ function EnhanceWorkspace({
             </div>
             <div className="summary-card">
               <h3>压缩质量</h3>
-              <p>{pdfQualityOptions.find((item) => item.value === selectedPdfQualityMode)?.label || selectedPdfQualityMode}</p>
+              <p>{selectedEnhancer === "waifu2x" ? `${Number(selectedWaifuScale || 1.5).toFixed(1)}x` : "1.5x"}</p>
             </div>
           </section>
 
@@ -1029,13 +1075,13 @@ function SettingsWorkspace({
   onToggleEnhanced,
   selectedImageFormat,
   onSelectImageFormat,
-  selectedPdfQualityMode,
-  onSelectPdfQualityMode,
   enhancerModels,
   selectedEnhancer,
   onSelectEnhancer,
   selectedWaifuNoise,
   onSelectWaifuNoise,
+  selectedWaifuScale,
+  onSelectWaifuScale,
   mergeOutputEnabled,
   onToggleMergeOutput,
   outputPath,
@@ -1106,12 +1152,12 @@ function SettingsWorkspace({
           <h3>图片压缩质量</h3>
           <p className="setting-copy">对 JPG / WEBP 生效。PNG 仍保持无损，主要用于在体积和细节之间取平衡。</p>
           <div className="model-grid model-grid--compact">
-            {pdfQualityOptions.map((item) => (
+            {[].map((item) => (
               <button
                 key={item.value}
                 type="button"
-                className={`model-card ${selectedPdfQualityMode === item.value ? "is-active" : ""}`}
-                onClick={() => onSelectPdfQualityMode(item.value)}
+                className="model-card"
+                onClick={() => {}}
               >
                 <div className="model-top">
                   <strong>{item.label}</strong>
@@ -1162,6 +1208,20 @@ function SettingsWorkspace({
                   type="button"
                   className={`pill-btn ${selectedWaifuNoise === item.value ? "is-active" : ""}`}
                   onClick={() => onSelectWaifuNoise(item.value)}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+            <h3>waifu2x 鏀惧ぇ鍊嶇巼</h3>
+            <p className="setting-copy">鏀惧ぇ鍊嶇巼浼氱洿鎺ュ奖鍝嶅儚绱犳€婚噺鍜屽鍑轰綋绉紝棰勪及澶у皬浼氶殢涔嬭皟鏁淬€?/p>
+            <div className="format-pills">
+              {waifuScaleOptions.map((item) => (
+                <button
+                  key={item.value}
+                  type="button"
+                  className={`pill-btn ${selectedWaifuScale === item.value ? "is-active" : ""}`}
+                  onClick={() => onSelectWaifuScale(item.value)}
                 >
                   {item.label}
                 </button>
@@ -1262,7 +1322,7 @@ function TaskWorkspace({ jobs, currentJob, detailMode, taskPage, totalTaskPages,
               >
                 <div className="task-main">
                   <strong>{job.name}</strong>
-                  <span>{job.source_name}</span>
+                  <span>{summarizeTaskSource(job)}</span>
                 </div>
                 <span className={`task-status-chip is-${job.status || "idle"}`}>{formatStatus(job.status)}</span>
                 <div className="task-stage">{formatStage(job.stage)}</div>
@@ -1307,6 +1367,10 @@ function TaskWorkspace({ jobs, currentJob, detailMode, taskPage, totalTaskPages,
     );
   }
 
+  const warningLines = currentJob
+    ? [...(currentJob.notes || []), ...(currentJob.logs || [])].filter((line) => isActualWarningLine(line))
+    : [];
+
   return (
     <section className="surface-panel task-detail-panel single">
       <div className="panel-head">
@@ -1324,6 +1388,15 @@ function TaskWorkspace({ jobs, currentJob, detailMode, taskPage, totalTaskPages,
 
       {currentJob ? (
         <>
+          {warningLines.length ? (
+            <section className="task-warning-card">
+              <h3>增强警告</h3>
+              {warningLines.slice(0, 4).map((line, index) => (
+                <p key={`${currentJob.id}-warning-${index}`}>{line}</p>
+              ))}
+            </section>
+          ) : null}
+
           <section className="detail-progress-card">
             <div className="task-progress-top">
               <span>当前进度</span>
@@ -1351,8 +1424,11 @@ function TaskWorkspace({ jobs, currentJob, detailMode, taskPage, totalTaskPages,
             <section className="summary-card">
               <h3>任务说明</h3>
               <p>{`阶段：${formatStage(currentJob.stage)}`}</p>
-              <p>{currentJob.progress_label || "-"}</p>
+              <p>{currentJob.status === "failed" ? summarizeFailure(currentJob) : currentJob.progress_label || "-"}</p>
               <p>{`输出目录：${currentJob.output_dir || "-"}`}</p>
+              {(currentJob.notes || []).filter((line) => /pages_ai success|pages_ai fallback|enhance success|enhance fallback|output_dir:/i.test(String(line || ""))).slice(0, 4).map((line) => (
+                <p key={`${currentJob.id}-${line}`}>{line}</p>
+              ))}
               {currentJob.error_detail ? <p>{currentJob.error_detail.split("\n")[0]}</p> : null}
             </section>
           </div>
@@ -1386,10 +1462,10 @@ export default function App() {
   const [keepOriginalPages, setKeepOriginalPages] = useState(() => readStoredValue("keep-original", true));
   const [keepEnhancedPages, setKeepEnhancedPages] = useState(() => readStoredValue("keep-enhanced", true));
   const [selectedImageFormat, setSelectedImageFormat] = useState(() => readStoredValue("image-format", "jpg"));
-  const [selectedPdfQualityMode, setSelectedPdfQualityMode] = useState(() => readStoredValue("pdf-quality-mode", "fast_auto"));
   const [outputDevice, setOutputDevice] = useState(() => readStoredValue("output-device", "android-tablet"));
   const [selectedEnhancer, setSelectedEnhancer] = useState(() => readStoredValue("enhancer", "waifu2x"));
   const [selectedWaifuNoise, setSelectedWaifuNoise] = useState(() => readStoredValue("waifu-noise", 0));
+  const [selectedWaifuScale, setSelectedWaifuScale] = useState(() => readStoredValue("waifu-scale", 1.5));
   const [mergeOutputEnabled, setMergeOutputEnabled] = useState(() => readStoredValue("merge-output-enabled", false));
   const [enhancerModels, setEnhancerModels] = useState(sortEnhancerModels([
     { name: "waifu2x", available: true, recommended: true },
@@ -1407,10 +1483,10 @@ export default function App() {
   useEffect(() => writeStoredValue("keep-original", keepOriginalPages), [keepOriginalPages]);
   useEffect(() => writeStoredValue("keep-enhanced", keepEnhancedPages), [keepEnhancedPages]);
   useEffect(() => writeStoredValue("image-format", selectedImageFormat), [selectedImageFormat]);
-  useEffect(() => writeStoredValue("pdf-quality-mode", selectedPdfQualityMode), [selectedPdfQualityMode]);
   useEffect(() => writeStoredValue("output-device", outputDevice), [outputDevice]);
   useEffect(() => writeStoredValue("enhancer", selectedEnhancer), [selectedEnhancer]);
   useEffect(() => writeStoredValue("waifu-noise", selectedWaifuNoise), [selectedWaifuNoise]);
+  useEffect(() => writeStoredValue("waifu-scale", selectedWaifuScale), [selectedWaifuScale]);
   useEffect(() => writeStoredValue("merge-output-enabled", mergeOutputEnabled), [mergeOutputEnabled]);
 
   useEffect(() => {
@@ -1497,15 +1573,15 @@ export default function App() {
           sizeText: formatEstimateRange(
             sumEstimateRanges(estimateSources, format, {
               imageFormat: selectedImageFormat,
-              qualityMode: selectedPdfQualityMode,
               enhancer: selectedEnhancer,
+              enhanceScale: selectedEnhancer === "waifu2x" ? selectedWaifuScale : 1.5,
               deviceMultiplier: currentDevice.multiplier,
               selectedCount: estimateSources.length,
             }),
           ),
         };
       }),
-    [exportFormatOptions, selectedFormats, estimateSources, selectedImageFormat, selectedPdfQualityMode, selectedEnhancer, currentDevice.multiplier],
+    [exportFormatOptions, selectedFormats, estimateSources, selectedImageFormat, selectedEnhancer, selectedWaifuScale, currentDevice.multiplier],
   );
 
   const currentContent =
@@ -1574,6 +1650,7 @@ export default function App() {
         source_name: sourceName,
         enhancer: selectedEnhancer,
         waifu2x_noise: String(selectedWaifuNoise),
+        enhance_scale: String(selectedEnhancer === "waifu2x" ? selectedWaifuScale : 1.5),
         image_format: selectedImageFormat,
       });
       const response = await fetch(`/api/enhance-preview?${params.toString()}`);
@@ -1591,7 +1668,7 @@ export default function App() {
     if (activePage !== "enhance") return;
     const sourceName = selectedSourceItems[0]?.name || previewSource?.name || "";
     loadEnhancePreview(sourceName).catch(() => {});
-  }, [activePage, selectedSourceItems, previewSource, selectedEnhancer, selectedWaifuNoise, selectedImageFormat, data.jobs]);
+  }, [activePage, selectedSourceItems, previewSource, selectedEnhancer, selectedWaifuNoise, selectedWaifuScale, selectedImageFormat, data.jobs]);
 
   const pickDirectory = async (currentPath, title, options = {}) => {
     const response = await fetch("/api/pick-directory", {
@@ -1686,10 +1763,9 @@ export default function App() {
         output_formats: selectedFormats,
         keep_original_pages: keepOriginalPages,
         keep_enhanced_pages: keepEnhancedPages,
-        pdf_quality_mode: selectedPdfQualityMode,
         pdf_image_format: selectedImageFormat,
         enhancer: selectedEnhancer,
-        enhance_scale: 1.5,
+        enhance_scale: selectedEnhancer === "waifu2x" ? selectedWaifuScale : 1.5,
         waifu2x_noise: selectedWaifuNoise,
       }),
     });
@@ -1744,12 +1820,11 @@ export default function App() {
         output_dir: data.default_output_root,
         output_formats: selectedFormats,
         enhancer: selectedEnhancer,
-        enhance_scale: 1.5,
+        enhance_scale: selectedEnhancer === "waifu2x" ? selectedWaifuScale : 1.5,
         strategy: "quality_auto",
         waifu2x_noise: selectedWaifuNoise,
         waifu2x_tta: false,
         waifu2x_model: "models-cunet",
-        pdf_quality_mode: selectedPdfQualityMode,
         pdf_image_format: selectedImageFormat,
         keep_original_pages: keepOriginalPages,
         keep_enhanced_pages: keepEnhancedPages,
@@ -1906,13 +1981,13 @@ export default function App() {
           onToggleEnhanced={setKeepEnhancedPages}
           selectedImageFormat={selectedImageFormat}
           onSelectImageFormat={setSelectedImageFormat}
-          selectedPdfQualityMode={selectedPdfQualityMode}
-          onSelectPdfQualityMode={setSelectedPdfQualityMode}
           enhancerModels={enhancerModels}
           selectedEnhancer={selectedEnhancer}
           onSelectEnhancer={setSelectedEnhancer}
           selectedWaifuNoise={selectedWaifuNoise}
           onSelectWaifuNoise={setSelectedWaifuNoise}
+          selectedWaifuScale={selectedWaifuScale}
+          onSelectWaifuScale={setSelectedWaifuScale}
           mergeOutputEnabled={mergeOutputEnabled}
           onToggleMergeOutput={setMergeOutputEnabled}
         outputPath={data.default_output_root}
@@ -1977,9 +2052,10 @@ export default function App() {
         selectedEnhancer={selectedEnhancer}
         onSelectEnhancer={setSelectedEnhancer}
         selectedImageFormat={selectedImageFormat}
-        selectedPdfQualityMode={selectedPdfQualityMode}
         selectedWaifuNoise={selectedWaifuNoise}
+        selectedWaifuScale={selectedWaifuScale}
         onSelectWaifuNoise={setSelectedWaifuNoise}
+        onSelectWaifuScale={setSelectedWaifuScale}
         onSwitchDir={() => switchSourceRoot().catch((error) => setMessage(error.message || "鍒囨崲绱犳潗鐩綍澶辫触"))}
         onPickOutputPath={() => chooseOutputRoot().catch((error) => setMessage(error.message || "璁剧疆瀵煎嚭鐩綍澶辫触"))}
         onRun={runCurrentModule}
